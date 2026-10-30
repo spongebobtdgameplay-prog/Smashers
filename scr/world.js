@@ -33,51 +33,26 @@ export function createWorld(THREE, canvas, viewport) {
     // RENDERER
     // ========================================
 
-    // Create a lightweight WebGL 2 context explicitly. Three.js r187
-    // requires WebGL 2; requesting it here lets us report a useful error
-    // before the renderer fails with a generic initialization message.
-    let context = null;
-
-    try {
-        context = canvas.getContext("webgl2", {
-            alpha: false,
-            antialias: false,
-            depth: true,
-            stencil: false,
-            powerPreference: "default",
-            failIfMajorPerformanceCaveat: false
-        });
-    } catch (error) {
-        throw new Error(
-            `Unable to create a WebGL 2 context: ${error.message || error}`
-        );
-    }
-
-    if (!context) {
-        let webgl1Available = false;
-
-        try {
-            webgl1Available = Boolean(
-                canvas.getContext("webgl") ||
-                canvas.getContext("experimental-webgl")
-            );
-        } catch {
-            // Keep the more useful WebGL 2 failure below.
-        }
-
-        throw new Error(
-            webgl1Available
-                ? "This Three.js engine requires WebGL 2, but this browser only provided WebGL 1."
-                : "WebGL 2 is unavailable. Enable browser hardware acceleration, update the graphics driver, and make sure WebGL 2 is enabled."
-        );
-    }
-
+    // Three.js r162 supports both WebGL 2 and WebGL 1.
+    // WebGLRenderer requests WebGL 2 first, then falls back to WebGL 1
+    // (or experimental-webgl) when the newer context is unavailable.
+    // Do not call canvas.getContext() first: the renderer must own context
+    // selection so it can make that fallback on the same canvas.
     const renderer = new THREE.WebGLRenderer({
         canvas,
-        context,
+        alpha: false,
         antialias: false,
-        powerPreference: "default"
+        depth: true,
+        stencil: false,
+        powerPreference: "default",
+        failIfMajorPerformanceCaveat: false
     });
+
+    const gl = renderer.getContext();
+    const glVersion = gl.getParameter(gl.VERSION);
+    console.info(
+        `[SMASHERS] ${glVersion} — Three.js r${THREE.REVISION}.`
+    );
 
     // Keep rendering at native display resolution for broader GPU support.
     renderer.setPixelRatio(1);
