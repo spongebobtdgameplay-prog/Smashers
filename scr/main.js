@@ -61,6 +61,7 @@ let world;
 let player;
 let opponent;
 let messageTimeout = null;
+let startupPhase = "application startup";
 
 // ============================================
 // SERVER PATCHER
@@ -85,11 +86,13 @@ const serverPatcher = new ServerPatcher({
 // ============================================
 
 function initializeWorld() {
+    startupPhase = "initializing Three.js renderer";
     loadingStatus.textContent = "INITIALIZING THREE.JS...";
     loadingProgress.style.width = "20%";
 
     world = createWorld(THREE, canvas, viewport);
 
+    startupPhase = "building the arena and fighters";
     loadingStatus.textContent = "BUILDING THE ARENA...";
     loadingProgress.style.width = "50%";
 
@@ -116,6 +119,7 @@ function initializeWorld() {
     if (playerName) playerName.textContent = player.name;
     if (opponentName) opponentName.textContent = opponent.name;
 
+    startupPhase = "preparing fighters and HUD";
     loadingStatus.textContent = "PREPARING FIGHTERS...";
     loadingProgress.style.width = "80%";
 
@@ -486,23 +490,29 @@ function update(delta) {
 // ============================================
 
 function animate() {
-    requestAnimationFrame(animate);
+    try {
+        const delta = Math.min(
+            world ? world.clock.getDelta() : 0,
+            0.05
+        );
 
-    const delta = Math.min(
-        world ? world.clock.getDelta() : 0,
-        0.05
-    );
+        game.elapsed += delta;
 
-    game.elapsed += delta;
+        if (world) {
+            if (!game.paused && !game.finished) {
+                update(delta);
+            }
 
-    if (world) {
-        if (!game.paused && !game.finished) {
-            update(delta);
+            world.update(delta, game.elapsed);
+            world.renderer.render(world.scene, world.camera);
         }
-
-        world.update(delta, game.elapsed);
-        world.renderer.render(world.scene, world.camera);
+    } catch (error) {
+        showEngineFailure(error, "rendering the first or a later frame");
+        return false;
     }
+
+    requestAnimationFrame(animate);
+    return true;
 }
 
 // ============================================
@@ -519,32 +529,48 @@ window.addEventListener("resize", () => {
 // START
 // ============================================
 
+function showEngineFailure(error, phase = startupPhase) {
+    const detail = error instanceof Error
+        ? error.message
+        : String(error);
+
+    console.error(
+        `SMASHERS INITIALIZATION FAILED during ${phase}:`,
+        error
+    );
+
+    if (loadingScreen) {
+        loadingScreen.classList.remove("hidden");
+    }
+
+    if (loadingStatus) {
+        loadingStatus.textContent =
+            `ENGINE INITIALIZATION FAILED (${phase}): ${detail}`;
+    }
+
+    if (fightStatus) {
+        fightStatus.textContent = "ERROR";
+    }
+
+    if (loadingProgress) {
+        loadingProgress.style.width = "0%";
+    }
+}
+
 function startGame() {
     try {
         initializeWorld();
+        startupPhase = "starting the renderer";
 
-        animate();
+        if (!animate()) {
+            return;
+        }
 
         console.info(
             `SMASHERS READY — THREE.JS REVISION ${THREE.REVISION}`
         );
     } catch (error) {
-        console.error("SMASHERS INITIALIZATION FAILED:", error);
-
-        if (loadingStatus) {
-            loadingStatus.textContent =
-                "ENGINE INITIALIZATION FAILED";
-        }
-
-        if (fightStatus) {
-            fightStatus.textContent = "ERROR";
-        }
-
-        if (loadingProgress) {
-            loadingProgress.style.width = "0%";
-        }
-
-        throw error;
+        showEngineFailure(error);
     }
 }
 
