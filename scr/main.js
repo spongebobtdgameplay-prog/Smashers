@@ -1,8 +1,9 @@
 
-import * as THREE from "../engine/three/three.module.js?v=20261030-webgl1-fallback-3";
-import { createWorld } from "./world.js?v=20261030-webgl1-fallback-3";
+import * as THREE from "../engine/three/three.module.js?v=20261030-build-004";
+import { createWorld } from "./world.js?v=20261030-build-004";
 import { createFighter } from "./player.js";
 import { ServerPatcher } from "./v1-server.js";
+import { BUILD_LABEL } from "./version.js?v=20261030-build-004";
 
 // ============================================
 // SMASHERS — MAIN APPLICATION
@@ -11,6 +12,11 @@ import { ServerPatcher } from "./v1-server.js";
 const $ = (id) => document.getElementById(id);
 
 const canvas = $("smashers-canvas");
+const gameVersion = $("game-version");
+
+if (gameVersion) {
+    gameVersion.textContent = BUILD_LABEL;
+}
 const viewport = $("game-viewport");
 const loadingScreen = $("loading-screen");
 const loadingProgress = $("loading-progress");
@@ -567,7 +573,7 @@ function startGame() {
         }
 
         console.info(
-            `SMASHERS READY — THREE.JS REVISION ${THREE.REVISION}`
+            `SMASHERS ${BUILD_LABEL} READY — THREE.JS REVISION ${THREE.REVISION}`
         );
     } catch (error) {
         showEngineFailure(error);
