@@ -1,106 +1,472 @@
+/* SMASHERS — FIGHT SCREEN */
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#101014">
+:root {
+    color-scheme: dark;
+    --game-bg: #101014;
+    --game-panel: rgba(16, 16, 20, 0.82);
+    --game-border: rgba(255, 255, 255, 0.12);
+    --game-text: #f4f2ef;
+    --game-muted: #aaa7b0;
+    --game-red: #f04438;
+    --game-blue: #315dff;
+}
 
-    <title>Smashers — Fight</title>
+* {
+    box-sizing: border-box;
+}
 
-    <link rel="stylesheet" href="style2-main.css">
-</head>
+html,
+body.game-page {
+    width: 100%;
+    min-width: 320px;
+    height: 100%;
+    min-height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--game-bg);
+    color: var(--game-text);
+    font-family: Inter, Arial, sans-serif;
+}
 
-<body class="game-page">
+body.game-page {
+    min-height: 100vh;
+    min-height: 100svh;
+}
 
-    <main id="game-container">
+#game-container,
+#game-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100svh;
+    overflow: hidden;
+}
 
-        <!-- 3D GAME VIEWPORT -->
-        <div id="game-viewport">
-            <canvas id="smashers-canvas"></canvas>
+#game-viewport {
+    isolation: isolate;
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(55, 48, 64, 0.22), transparent 65%),
+        #101014;
+}
 
-            <div id="loading-screen">
-                <div class="loading-content">
-                    <div class="loading-logo">SMASHERS<span>.</span></div>
-                    <p>PREPARING THE FIGHT</p>
-                    <div class="loading-track">
-                        <div id="loading-progress"></div>
-                    </div>
-                    <span id="loading-status">INITIALIZING ENGINE...</span>
-                </div>
-            </div>
+#smashers-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    touch-action: none;
+}
 
-            <!-- GAME HUD -->
-            <section id="game-hud" aria-label="Fight information">
+/* LOADING SCREEN */
 
-                <div class="fighter-status player-status">
-                    <div class="fighter-info">
-                        <span class="fighter-label">PLAYER</span>
-                        <span class="fighter-name" id="player-name">FIGHTER</span>
-                    </div>
+#loading-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: #101014;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 260ms ease, visibility 260ms ease;
+}
 
-                    <div class="health-container">
-                        <div class="health-bar">
-                            <div id="player-health" class="health-fill"></div>
-                        </div>
-                        <span id="player-health-value">100</span>
-                    </div>
-                </div>
+#loading-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
 
-                <div id="fight-center">
-                    <div id="fight-timer">03:00</div>
-                    <div id="fight-status">READY</div>
-                </div>
+.loading-content {
+    width: min(420px, 100%);
+    text-align: center;
+}
 
-                <div class="fighter-status opponent-status">
-                    <div class="fighter-info">
-                        <span class="fighter-label">OPPONENT</span>
-                        <span class="fighter-name" id="opponent-name">UNKNOWN</span>
-                    </div>
+.loading-logo {
+    font-family: Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(42px, 8vw, 68px);
+    font-weight: 900;
+    letter-spacing: 2px;
+}
 
-                    <div class="health-container">
-                        <div class="health-bar">
-                            <div id="opponent-health" class="health-fill"></div>
-                        </div>
-                        <span id="opponent-health-value">100</span>
-                    </div>
-                </div>
+.loading-logo span {
+    color: var(--game-red);
+}
 
-            </section>
+.loading-content > p {
+    margin: 12px 0 24px;
+    color: var(--game-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 3px;
+}
 
-            <!-- GAME MESSAGES -->
-            <div id="game-message" aria-live="polite"></div>
+.loading-track {
+    width: 100%;
+    height: 5px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.1);
+}
 
-            <!-- PAUSE MENU -->
-            <section id="pause-menu" hidden>
-                <div class="menu-panel">
-                    <p class="menu-eyebrow">SMASHERS</p>
-                    <h1>GAME PAUSED</h1>
+#loading-progress {
+    width: 0;
+    height: 100%;
+    background: var(--game-red);
+    transition: width 180ms ease;
+}
 
-                    <button id="resume-button" type="button">
-                        RESUME FIGHT
-                    </button>
+#loading-status {
+    display: block;
+    margin-top: 13px;
+    color: var(--game-muted);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+}
 
-                    <a href="index.html" id="exit-button">
-                        EXIT TO MAIN MENU
-                    </a>
-                </div>
-            </section>
+/* FIGHT HUD */
 
-            <!-- GAME CONTROLS -->
-            <div id="controls-display">
-                <span>W A S D <small>MOVE</small></span>
-                <span>J <small>PUNCH</small></span>
-                <span>K <small>BLOCK</small></span>
-                <span>SPACE <small>DODGE</small></span>
-                <span>ESC <small>PAUSE</small></span>
-            </div>
+#game-hud {
+    position: absolute;
+    z-index: 5;
+    top: max(18px, env(safe-area-inset-top));
+    left: 50%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(12px, 3vw, 42px);
+    width: min(1120px, calc(100% - 48px));
+    transform: translateX(-50%);
+    pointer-events: none;
+}
 
-        </div>
+.fighter-status {
+    min-width: 0;
+    padding: 13px 16px;
+    border: 1px solid var(--game-border);
+    background: var(--game-panel);
+    backdrop-filter: blur(8px);
+}
 
-    </main>
+.opponent-status {
+    text-align: right;
+}
 
-    <script type="module" src="scr/main.js"></script>
+.fighter-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+}
 
-</body>
-</html>
+.opponent-status .fighter-info {
+    align-items: flex-end;
+}
+
+.fighter-label {
+    color: var(--game-muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.fighter-name {
+    overflow: hidden;
+    max-width: 100%;
+    font-family: Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(17px, 2.4vw, 25px);
+    letter-spacing: 0.7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.health-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.opponent-status .health-container {
+    flex-direction: row-reverse;
+}
+
+.health-bar {
+    flex: 1;
+    height: 9px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.13);
+}
+
+.health-fill {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #b92320, var(--game-red));
+    transition: width 140ms linear;
+}
+
+.opponent-status .health-fill {
+    background: linear-gradient(90deg, #2448d8, var(--game-blue));
+}
+
+.health-container > span {
+    min-width: 26px;
+    color: var(--game-text);
+    font-size: 11px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+#fight-center {
+    min-width: 92px;
+    padding: 10px 12px;
+    border: 1px solid var(--game-border);
+    background: var(--game-panel);
+    text-align: center;
+    backdrop-filter: blur(8px);
+}
+
+#fight-timer {
+    font-family: Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(24px, 3vw, 34px);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+#fight-status {
+    margin-top: 2px;
+    color: var(--game-red);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+/* FIGHT MESSAGES */
+
+#game-message {
+    position: absolute;
+    z-index: 8;
+    top: 43%;
+    left: 50%;
+    max-width: calc(100% - 32px);
+    color: white;
+    font-family: Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(32px, 7vw, 72px);
+    letter-spacing: 2px;
+    text-align: center;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.75);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -42%);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+#game-message.visible {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+}
+
+/* PAUSE MENU */
+
+#pause-menu {
+    position: absolute;
+    z-index: 15;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(5, 5, 8, 0.72);
+    backdrop-filter: blur(7px);
+}
+
+#pause-menu[hidden] {
+    display: none !important;
+}
+
+.menu-panel {
+    width: min(420px, 100%);
+    padding: clamp(28px, 6vw, 48px);
+    border: 1px solid var(--game-border);
+    background: #17171d;
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.menu-eyebrow {
+    margin: 0 0 12px;
+    color: var(--game-red);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 3px;
+}
+
+.menu-panel h1 {
+    margin: 0 0 28px;
+    font-family: Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(34px, 7vw, 48px);
+    letter-spacing: 1px;
+}
+
+#resume-button,
+#exit-button {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#resume-button {
+    background: var(--game-red);
+    color: white;
+}
+
+#resume-button:hover {
+    background: #c92d27;
+}
+
+#exit-button {
+    margin-top: 10px;
+    border: 1px solid var(--game-border);
+    background: transparent;
+    color: var(--game-text);
+}
+
+#exit-button:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+/* CONTROL HINTS */
+
+#controls-display {
+    position: absolute;
+    z-index: 4;
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    left: max(18px, env(safe-area-inset-left));
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 9px 18px;
+    color: rgba(255, 255, 255, 0.8);
+    pointer-events: none;
+}
+
+#controls-display > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+#controls-display small {
+    color: var(--game-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+}
+
+/* RESPONSIVE LAYOUT */
+
+@media (max-width: 700px) {
+    #game-hud {
+        top: max(10px, env(safe-area-inset-top));
+        width: calc(100% - 20px);
+        gap: 7px;
+    }
+
+    .fighter-status {
+        padding: 9px;
+    }
+
+    .fighter-info {
+        margin-bottom: 7px;
+    }
+
+    .fighter-label {
+        font-size: 7px;
+        letter-spacing: 1px;
+    }
+
+    .fighter-name {
+        font-size: clamp(13px, 3.5vw, 18px);
+    }
+
+    .health-container {
+        gap: 5px;
+    }
+
+    .health-bar {
+        height: 7px;
+    }
+
+    .health-container > span {
+        min-width: 20px;
+        font-size: 9px;
+    }
+
+    #fight-center {
+        min-width: 66px;
+        padding: 8px 6px;
+    }
+
+    #fight-timer {
+        font-size: 22px;
+    }
+
+    #fight-status {
+        font-size: 7px;
+        letter-spacing: 1px;
+    }
+
+    #controls-display {
+        gap: 7px 12px;
+    }
+
+    #controls-display > span {
+        gap: 4px;
+        font-size: 9px;
+    }
+
+    #controls-display small {
+        font-size: 7px;
+    }
+}
+
+@media (max-width: 420px) {
+    #game-hud {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+
+    .fighter-status {
+        padding: 7px 6px;
+    }
+
+    .fighter-name {
+        font-size: 12px;
+    }
+
+    #controls-display {
+        max-width: 330px;
+        margin: 0 auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+    }
+}

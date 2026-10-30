@@ -77,11 +77,8 @@ const serverPatcher = new ServerPatcher({
     }
 });
 
-// V1 currently has no configured backend endpoint.
-// This does not prevent the local prototype from running.
-serverPatcher.connect("v1").catch((error) => {
-    console.warn("V1 server connection unavailable:", error);
-});
+// V1 is not deployed yet. Keep the registry initialized locally,
+// but do not make a network request during the offline prototype.
 
 // ============================================
 // WORLD AND FIGHTERS

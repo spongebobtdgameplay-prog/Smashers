@@ -59,7 +59,7 @@ export function createFighter(THREE, options = {}) {
 
         mesh.position.set(x, y, z);
         mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        mesh.receiveShadow = false;
 
         parent.add(mesh);
 
