@@ -33,25 +33,122 @@ export function createWorld(THREE, canvas, viewport) {
     // RENDERER
     // ========================================
 
-    // Three.js r162 supports both WebGL 2 and WebGL 1.
-    // WebGLRenderer requests WebGL 2 first, then falls back to WebGL 1
-    // (or experimental-webgl) when the newer context is unavailable.
-    // Do not call canvas.getContext() first: the renderer must own context
-    // selection so it can make that fallback on the same canvas.
-    const renderer = new THREE.WebGLRenderer({
-        canvas,
+    // Test WebGL 2 on a temporary canvas first. Some browser/driver
+    // combinations fail a WebGL 2 request on the game canvas in a way
+    // that prevents a later WebGL 1 fallback on that same canvas.
+    const contextAttributes = {
         alpha: false,
         antialias: false,
         depth: true,
         stencil: false,
         powerPreference: "default",
         failIfMajorPerformanceCaveat: false
+    };
+
+    const probeCanvas = document.createElement("canvas");
+    probeCanvas.width = 1;
+    probeCanvas.height = 1;
+
+    let webgl2Available = false;
+
+    try {
+        const probeContext = probeCanvas.getContext(
+            "webgl2",
+            contextAttributes
+        );
+
+        webgl2Available = Boolean(probeContext);
+
+        if (probeContext) {
+            probeContext
+                .getExtension("WEBGL_lose_context")
+                ?.loseContext();
+        }
+    } catch (error) {
+        console.info(
+            "[SMASHERS] WebGL 2 probe failed; trying WebGL 1.",
+            error
+        );
+    }
+
+    // If WebGL 2 is unavailable, do not request it on the actual game
+    // canvas. Start directly with WebGL 1 instead.
+    const contextTypes = webgl2Available
+        ? ["webgl2", "webgl", "experimental-webgl"]
+        : ["webgl", "experimental-webgl"];
+
+    const contextAttempts = [];
+    let context = null;
+    let contextType = "";
+
+    let contextCreationError = "";
+
+    const captureContextError = (event) => {
+        if (event.statusMessage) {
+            contextCreationError = event.statusMessage;
+        }
+    };
+
+    canvas.addEventListener(
+        "webglcontextcreationerror",
+        captureContextError
+    );
+
+    for (const type of contextTypes) {
+        // Try the requested lightweight attributes first, then let the
+        // browser select its defaults if those attributes are rejected.
+        for (const useAttributes of [true, false]) {
+            try {
+                const candidate = useAttributes
+                    ? canvas.getContext(type, contextAttributes)
+                    : canvas.getContext(type);
+
+                if (candidate) {
+                    context = candidate;
+                    contextType = type;
+                    break;
+                }
+
+                contextAttempts.push(
+                    `${type} (${useAttributes ? "requested" : "default"} attributes): unavailable`
+                );
+            } catch (error) {
+                contextAttempts.push(
+                    `${type} (${useAttributes ? "requested" : "default"} attributes): ${error.message || error}`
+                );
+            }
+        }
+
+        if (context) break;
+    }
+
+    canvas.removeEventListener(
+        "webglcontextcreationerror",
+        captureContextError
+    );
+
+    if (!context) {
+        const detail = contextAttempts.join("; ");
+        const browserDetail = contextCreationError
+            ? ` Browser detail: ${contextCreationError}`
+            : "";
+
+        throw new Error(
+            `Unable to create a WebGL context on the Smashers canvas. WebGL 2 probe: ${webgl2Available ? "available" : "unavailable"}. Attempts: ${detail}.${browserDetail}`
+        );
+    }
+
+    const renderer = new THREE.WebGLRenderer({
+        canvas,
+        context,
+        ...contextAttributes
     });
 
     const gl = renderer.getContext();
     const glVersion = gl.getParameter(gl.VERSION);
+
     console.info(
-        `[SMASHERS] ${glVersion} — Three.js r${THREE.REVISION}.`
+        `[SMASHERS] Selected ${contextType} (${glVersion}) — Three.js r${THREE.REVISION}.`
     );
 
     // Keep rendering at native display resolution for broader GPU support.
