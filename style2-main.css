@@ -470,3 +470,22 @@ body.game-page {
         transition-duration: 0.01ms !important;
     }
 }
+
+
+/* BUILD VERSION */
+#game-version {
+    position: absolute;
+    z-index: 21;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    padding: 7px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(16, 16, 20, 0.82);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    user-select: none;
+}
