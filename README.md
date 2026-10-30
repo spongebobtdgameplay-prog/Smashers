@@ -78,7 +78,7 @@ Online multiplayer is not currently deployed.
 | Technology | Purpose |
 |---|---|
 | JavaScript | Game logic and systems |
-| Three.js | 3D rendering |
+| Three.js r162 | 3D rendering; WebGL 2 with WebGL 1 fallback |
 | HTML5 | Game interface and structure |
 | CSS3 | Interface styling |
 | WebGL | Hardware-accelerated graphics |
@@ -103,7 +103,6 @@ Smashers/
 ├── engine/
 │   └── three/
 │       ├── three.module.js
-│       ├── three.core.js
 │       └── LICENSE
 │
 ├── scr/
@@ -139,7 +138,7 @@ A local server-management module intended to support future server configuration
 
 **`engine/three/`**
 
-Contains the locally hosted Three.js distribution. This avoids depending on a remote Three.js CDN at runtime.
+Contains the locally hosted Three.js r162 distribution. This release is intentional: its renderer tries WebGL 2 first and falls back to WebGL 1 when needed, while newer Three.js releases no longer support WebGL 1. The game does not depend on a remote Three.js CDN at runtime.
 
 ---
 
