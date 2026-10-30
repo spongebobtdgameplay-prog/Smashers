@@ -1,6 +1,6 @@
 
-import * as THREE from "../engine/three/three.module.js?v=20261030-webgl1-fallback-2";
-import { createWorld } from "./world.js?v=20261030-webgl1-fallback-2";
+import * as THREE from "../engine/three/three.module.js?v=20261030-webgl1-fallback-3";
+import { createWorld } from "./world.js?v=20261030-webgl1-fallback-3";
 import { createFighter } from "./player.js";
 import { ServerPatcher } from "./v1-server.js";
 
