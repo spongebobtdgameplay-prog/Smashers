@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101014">
+
+    <title>Smashers — Fight</title>
+
+    <link rel="stylesheet" href="style2-main.css">
+</head>
+
+<body class="game-page">
+
+    <main id="game-container">
+
+        <!-- 3D GAME VIEWPORT -->
+        <div id="game-viewport">
+            <canvas id="smashers-canvas"></canvas>
+
+            <div id="loading-screen">
+                <div class="loading-content">
+                    <div class="loading-logo">SMASHERS<span>.</span></div>
+                    <p>PREPARING THE FIGHT</p>
+                    <div class="loading-track">
+                        <div id="loading-progress"></div>
+                    </div>
+                    <span id="loading-status">INITIALIZING ENGINE...</span>
+                </div>
+            </div>
+
+            <!-- GAME HUD -->
+            <section id="game-hud" aria-label="Fight information">
+
+                <div class="fighter-status player-status">
+                    <div class="fighter-info">
+                        <span class="fighter-label">PLAYER</span>
+                        <span class="fighter-name" id="player-name">FIGHTER</span>
+                    </div>
+
+                    <div class="health-container">
+                        <div class="health-bar">
+                            <div id="player-health" class="health-fill"></div>
+                        </div>
+                        <span id="player-health-value">100</span>
+                    </div>
+                </div>
+
+                <div id="fight-center">
+                    <div id="fight-timer">03:00</div>
+                    <div id="fight-status">READY</div>
+                </div>
+
+                <div class="fighter-status opponent-status">
+                    <div class="fighter-info">
+                        <span class="fighter-label">OPPONENT</span>
+                        <span class="fighter-name" id="opponent-name">UNKNOWN</span>
+                    </div>
+
+                    <div class="health-container">
+                        <div class="health-bar">
+                            <div id="opponent-health" class="health-fill"></div>
+                        </div>
+                        <span id="opponent-health-value">100</span>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- GAME MESSAGES -->
+            <div id="game-message" aria-live="polite"></div>
+
+            <!-- PAUSE MENU -->
+            <section id="pause-menu" hidden>
+                <div class="menu-panel">
+                    <p class="menu-eyebrow">SMASHERS</p>
+                    <h1>GAME PAUSED</h1>
+
+                    <button id="resume-button" type="button">
+                        RESUME FIGHT
+                    </button>
+
+                    <a href="index.html" id="exit-button">
+                        EXIT TO MAIN MENU
+                    </a>
+                </div>
+            </section>
+
+            <!-- GAME CONTROLS -->
+            <div id="controls-display">
+                <span>W A S D <small>MOVE</small></span>
+                <span>J <small>PUNCH</small></span>
+                <span>K <small>BLOCK</small></span>
+                <span>SPACE <small>DODGE</small></span>
+                <span>ESC <small>PAUSE</small></span>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script type="module" src="scr/main.js"></script>
+
+</body>
+</html>
