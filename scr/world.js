@@ -33,15 +33,54 @@ export function createWorld(THREE, canvas, viewport) {
     // RENDERER
     // ========================================
 
+    // Create a lightweight WebGL 2 context explicitly. Three.js r187
+    // requires WebGL 2; requesting it here lets us report a useful error
+    // before the renderer fails with a generic initialization message.
+    let context = null;
+
+    try {
+        context = canvas.getContext("webgl2", {
+            alpha: false,
+            antialias: false,
+            depth: true,
+            stencil: false,
+            powerPreference: "default",
+            failIfMajorPerformanceCaveat: false
+        });
+    } catch (error) {
+        throw new Error(
+            `Unable to create a WebGL 2 context: ${error.message || error}`
+        );
+    }
+
+    if (!context) {
+        let webgl1Available = false;
+
+        try {
+            webgl1Available = Boolean(
+                canvas.getContext("webgl") ||
+                canvas.getContext("experimental-webgl")
+            );
+        } catch {
+            // Keep the more useful WebGL 2 failure below.
+        }
+
+        throw new Error(
+            webgl1Available
+                ? "This Three.js engine requires WebGL 2, but this browser only provided WebGL 1."
+                : "WebGL 2 is unavailable. Enable browser hardware acceleration, update the graphics driver, and make sure WebGL 2 is enabled."
+        );
+    }
+
     const renderer = new THREE.WebGLRenderer({
         canvas,
-        antialias: true,
-        powerPreference: "high-performance"
+        context,
+        antialias: false,
+        powerPreference: "default"
     });
 
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 1.25)
-    );
+    // Keep rendering at native display resolution for broader GPU support.
+    renderer.setPixelRatio(1);
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
