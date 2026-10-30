@@ -40,7 +40,7 @@ export function createWorld(THREE, canvas, viewport) {
     });
 
     renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 1.5)
+        Math.min(window.devicePixelRatio || 1, 1.25)
     );
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -73,7 +73,7 @@ export function createWorld(THREE, canvas, viewport) {
     mainLight.position.set(-5, 12, 9);
     mainLight.castShadow = true;
 
-    mainLight.shadow.mapSize.set(1024, 1024);
+    mainLight.shadow.mapSize.set(512, 512);
 
     mainLight.shadow.camera.left = -12;
     mainLight.shadow.camera.right = 12;
