@@ -33,9 +33,10 @@ export function createWorld(THREE, canvas, viewport) {
     // RENDERER
     // ========================================
 
-    // Test WebGL 2 on a temporary canvas first. Some browser/driver
-    // combinations fail a WebGL 2 request on the game canvas in a way
-    // that prevents a later WebGL 1 fallback on that same canvas.
+    // Create a clean replacement canvas so an earlier failed context
+    // request or stale canvas state cannot block the WebGL 1 fallback.
+    const rendererCanvas = canvas.cloneNode(false);
+
     const contextAttributes = {
         alpha: false,
         antialias: false,
@@ -45,42 +46,17 @@ export function createWorld(THREE, canvas, viewport) {
         failIfMajorPerformanceCaveat: false
     };
 
-    const probeCanvas = document.createElement("canvas");
-    probeCanvas.width = 1;
-    probeCanvas.height = 1;
-
-    let webgl2Available = false;
-
-    try {
-        const probeContext = probeCanvas.getContext(
-            "webgl2",
-            contextAttributes
-        );
-
-        webgl2Available = Boolean(probeContext);
-
-        if (probeContext) {
-            probeContext
-                .getExtension("WEBGL_lose_context")
-                ?.loseContext();
-        }
-    } catch (error) {
-        console.info(
-            "[SMASHERS] WebGL 2 probe failed; trying WebGL 1.",
-            error
-        );
-    }
-
-    // If WebGL 2 is unavailable, do not request it on the actual game
-    // canvas. Start directly with WebGL 1 instead.
-    const contextTypes = webgl2Available
-        ? ["webgl2", "webgl", "experimental-webgl"]
-        : ["webgl", "experimental-webgl"];
+    // Always try WebGL 2 first. If it cannot be created, try WebGL 1
+    // on the exact same fresh canvas before reporting a renderer failure.
+    const contextTypes = [
+        "webgl2",
+        "webgl",
+        "experimental-webgl"
+    ];
 
     const contextAttempts = [];
     let context = null;
     let contextType = "";
-
     let contextCreationError = "";
 
     const captureContextError = (event) => {
@@ -89,19 +65,17 @@ export function createWorld(THREE, canvas, viewport) {
         }
     };
 
-    canvas.addEventListener(
+    rendererCanvas.addEventListener(
         "webglcontextcreationerror",
         captureContextError
     );
 
     for (const type of contextTypes) {
-        // Try the requested lightweight attributes first, then let the
-        // browser select its defaults if those attributes are rejected.
         for (const useAttributes of [true, false]) {
             try {
                 const candidate = useAttributes
-                    ? canvas.getContext(type, contextAttributes)
-                    : canvas.getContext(type);
+                    ? rendererCanvas.getContext(type, contextAttributes)
+                    : rendererCanvas.getContext(type);
 
                 if (candidate) {
                     context = candidate;
@@ -122,7 +96,7 @@ export function createWorld(THREE, canvas, viewport) {
         if (context) break;
     }
 
-    canvas.removeEventListener(
+    rendererCanvas.removeEventListener(
         "webglcontextcreationerror",
         captureContextError
     );
@@ -134,12 +108,16 @@ export function createWorld(THREE, canvas, viewport) {
             : "";
 
         throw new Error(
-            `Unable to create a WebGL context on the Smashers canvas. WebGL 2 probe: ${webgl2Available ? "available" : "unavailable"}. Attempts: ${detail}.${browserDetail}`
+            `WebGL 2 and WebGL 1 both failed on a fresh Smashers canvas. Attempts: ${detail}.${browserDetail}`
         );
     }
 
+    // Keep the existing game canvas untouched until a usable context
+    // has actually been acquired on its replacement.
+    canvas.replaceWith(rendererCanvas);
+
     const renderer = new THREE.WebGLRenderer({
-        canvas,
+        canvas: rendererCanvas,
         context,
         ...contextAttributes
     });
