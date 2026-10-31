@@ -8,7 +8,7 @@
 
     <title>Smashers — Fight</title>
 
-    <link rel="stylesheet" href="style2-main.css?v=20261030-build-004">
+    <link rel="stylesheet" href="style2-main.css?v=20261030-smashers-boxing-005">
 </head>
 
 <body class="game-page">
@@ -49,8 +49,10 @@
                 </div>
 
                 <div id="fight-center">
-                    <div id="fight-timer">03:00</div>
+                    <div id="round-indicator">ROUND 1 / 4</div>
+                    <div id="fight-timer">00:45</div>
                     <div id="fight-status">READY</div>
+                    <div id="fight-score">ROUNDS 0 — 0</div>
                 </div>
 
                 <div class="fighter-status opponent-status">
@@ -71,6 +73,18 @@
 
             <!-- GAME MESSAGES -->
             <div id="game-message" aria-live="polite"></div>
+            <div id="referee-count" aria-live="assertive" hidden></div>
+
+            <!-- MATCH RESULT -->
+            <section id="result-menu" hidden>
+                <div class="menu-panel">
+                    <p class="menu-eyebrow">OFFICIAL RESULT</p>
+                    <h1 id="result-title">FIGHT OVER</h1>
+                    <p id="result-detail">Four rounds complete.</p>
+                    <button id="rematch-button" type="button">FIGHT AGAIN</button>
+                    <a href="index.html" id="exit-button">EXIT TO MAIN MENU</a>
+                </div>
+            </section>
 
             <!-- PAUSE MENU -->
             <section id="pause-menu" hidden>
@@ -93,7 +107,7 @@
                 <span>W A S D <small>MOVE</small></span>
                 <span>J <small>PUNCH</small></span>
                 <span>K <small>BLOCK</small></span>
-                <span>SPACE <small>DODGE</small></span>
+                <span>SPACE <small>DODGE / GET UP</small></span>
                 <span>ESC <small>PAUSE</small></span>
             </div>
 
@@ -101,7 +115,14 @@
 
     </main>
 
-    <script type="module" src="scr/main.js?v=20261030-build-004"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./engine/three/three.module.js?v=20261030-smashers-boxing-005"
+            }
+        }
+    </script>
+    <script type="module" src="scr/main.js?v=20261030-smashers-boxing-005"></script>
 
 </body>
 </html>
