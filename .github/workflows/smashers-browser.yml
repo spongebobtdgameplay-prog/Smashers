@@ -1,0 +1,42 @@
+name: Smashers browser QA
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - game.html
+      - scr/**
+      - engine/three/**
+      - assets/models/**
+      - style2-main.css
+      - tests/browser-smoke.mjs
+      - .github/workflows/smashers-browser.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright
+        run: npm install --no-save playwright
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser gameplay checks
+        run: node tests/browser-smoke.mjs
+      - name: Upload game screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smashers-browser-screenshot
+          path: artifacts/smashers-boxing-scene.png
+          if-no-files-found: ignore
+          retention-days: 7
