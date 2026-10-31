@@ -468,14 +468,17 @@ export function createFighter(THREE, options = {}) {
                 new THREE.CylinderGeometry(radius, radius, 1, 10),
                 skinMaterial
             );
+            tube.name = `SmashersRigLegTube.${startName}`;
             const startCap = new THREE.Mesh(
                 new THREE.SphereGeometry(radius, 10, 8),
                 skinMaterial
             );
+            startCap.name = `SmashersRigLegStart.${startName}`;
             const endCap = new THREE.Mesh(
                 new THREE.SphereGeometry(radius, 10, 8),
                 skinMaterial
             );
+            endCap.name = `SmashersRigLegEnd.${startName}`;
 
             for (const mesh of [tube, startCap, endCap]) {
                 mesh.castShadow = true;
