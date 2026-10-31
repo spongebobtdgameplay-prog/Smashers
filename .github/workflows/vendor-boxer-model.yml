@@ -1,0 +1,52 @@
+name: Vendor boxer model
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/vendor-boxer-model.yml
+      - assets/models/**
+      - scr/main.js
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Smashers
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Download and verify the CC0 boxer model
+        shell: bash
+        run: |
+          set -euo pipefail
+          model_path='assets/models/casual-character.glb'
+          expected='f31ba8b389268d4df6005cc62d4d7011de728bce'
+
+          if [[ -f "$model_path" ]]; then
+            echo 'The local boxer model is already present.'
+            exit 0
+          fi
+
+          mkdir -p assets/models
+          curl --fail --location --retry 3 \
+            'https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb' \
+            --output "$model_path"
+
+          actual="$(git hash-object "$model_path")"
+          if [[ "$actual" != "$expected" ]]; then
+            rm -f "$model_path"
+            echo "Model checksum mismatch: expected $expected, received $actual" >&2
+            exit 1
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$model_path"
+          git commit -m 'Vendor verified Quaternius CC0 boxer model'
+          git push
