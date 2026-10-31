@@ -930,6 +930,7 @@ function installQaBridge() {
             scaledSourceSize: fighter.state.modelScaledSize,
             localPosition: model.position.toArray(),
             localScale: model.scale.toArray(),
+            accessoryTransforms: fighter.state.accessoryTransforms,
             bounds: {
                 min: bounds.min.toArray(),
                 max: bounds.max.toArray(),
