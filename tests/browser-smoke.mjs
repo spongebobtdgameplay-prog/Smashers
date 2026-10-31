@@ -111,6 +111,12 @@ try {
   assert.equal(snapshot.opponent.modelLoaded, true, "opponent GLB should load");
   assert.ok(snapshot.player.modelMeshCount > 0, "player should contain visible model meshes");
   assert.ok(snapshot.opponent.modelMeshCount > 0, "opponent should contain visible model meshes");
+  assert.ok(snapshot.player.bones.length >= 8, "player should expose a mapped humanoid rig");
+  assert.ok(snapshot.opponent.bones.length >= 8, "opponent should expose a mapped humanoid rig");
+  for (const boneName of ["Head", "Chest", "Hips", "UpperArm.R", "LowerArm.R", "Wrist.R"]) {
+    assert.ok(snapshot.player.bones.includes(boneName), `player rig should map ${boneName}`);
+    assert.ok(snapshot.opponent.bones.includes(boneName), `opponent rig should map ${boneName}`);
+  }
   assert.ok(snapshot.player.hurtboxes.length >= 5, "player should have rig-based hurtboxes");
   assert.ok(snapshot.opponent.hurtboxes.length >= 5, "opponent should have rig-based hurtboxes");
   assert.ok(snapshot.player.hurtboxes.some(box => box.zone === "head"), "player head hurtbox should exist");
