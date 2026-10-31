@@ -1,6 +1,6 @@
 # Smashers boxer model
 
-Smashers uses Quaternius' `casual-character.glb` as the base humanoid rig for both fighters. The source model is Z-up, so the game rotates its rig 90 degrees around X before calculating bounds and fitting it to a 1.76 m character height.
+Smashers uses Quaternius' `casual-character.glb` as the base humanoid rig for both fighters. The bundled file is Y-up; the game preserves its native orientation and fits the model to a 1.76 m character height from its raw bounds.
 
 - Author: Quaternius
 - Pack: [Ultimate Modular Men Pack](https://quaternius.com/packs/ultimatemodularcharacters.html)
@@ -12,4 +12,4 @@ Smashers uses Quaternius' `casual-character.glb` as the base humanoid rig for bo
 
 Smashers attaches team-coloured boxing gloves to the mapped wrist bones and trunks to the hips at runtime. The loader checks `assets/models/casual-character.glb` first and uses the upstream URL as a fallback. The model is bundled in the repository; the built-in procedural fighter remains a last-resort fallback if model loading fails.
 
-The integration uses the same Quaternius rig naming and GLTF loading approach as The Infinity Store, while applying the source model's Z-up to Y-up correction. Smashers uses dedicated rig-based hurtboxes, a swept fist capsule, and ring-bounded character collision.
+The integration uses the same Quaternius bone naming and GLTF-loading approach as The Infinity Store, while retaining the casual model's native Y-up coordinate system. Smashers uses dedicated rig-based hurtboxes, a swept fist capsule, and ring-bounded character collision.
