@@ -57,7 +57,7 @@ const CONFIG = Object.freeze({
     playerDamage: 12,
     opponentDamage: 8,
     playerAttackRange: 2.0,
-    opponentAttackRange: 2.0,
+    opponentAttackRange: 1.0,
     fighterRadius: 0.42,
     arenaBounds: {
         minX: -5.55,
