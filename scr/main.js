@@ -885,12 +885,35 @@ function showEngineFailure(error, phase = startupPhase) {
 function installQaBridge() {
     if (new URLSearchParams(window.location.search).get("qa") !== "1") return;
 
-    function countModelMeshes(fighter) {
-        let count = 0;
+    function inspectModel(fighter) {
+        let meshCount = 0;
+        let visibleMeshCount = 0;
         fighter.root.traverse((object) => {
-            if (object.isMesh) count += 1;
+            if (!object.isMesh) return;
+            meshCount += 1;
+            if (object.visible) visibleMeshCount += 1;
         });
-        return count;
+
+        if (!fighter.state.model) {
+            return { meshCount, visibleMeshCount, bounds: null, localPosition: null, localScale: null };
+        }
+
+        const bounds = new THREE.Box3().setFromObject(fighter.state.model);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+
+        return {
+            meshCount,
+            visibleMeshCount,
+            bounds: {
+                min: bounds.min.toArray(),
+                max: bounds.max.toArray(),
+                size: size.toArray(),
+                center: center.toArray()
+            },
+            localPosition: fighter.state.model.position.toArray(),
+            localScale: fighter.state.model.scale.toArray()
+        };
     }
 
     function countInstancedMeshes(group) {
@@ -918,7 +941,7 @@ function installQaBridge() {
             player: {
                 attached: player.root.parent === world.scene,
                 modelLoaded: Boolean(player.state.model),
-                modelMeshCount: countModelMeshes(player),
+                model: inspectModel(player),
                 bones: [...player.state.modelBones.keys()],
                 modelBoneNames: (() => {
                     const names = [];
@@ -938,7 +961,7 @@ function installQaBridge() {
             opponent: {
                 attached: opponent.root.parent === world.scene,
                 modelLoaded: Boolean(opponent.state.model),
-                modelMeshCount: countModelMeshes(opponent),
+                model: inspectModel(opponent),
                 bones: [...opponent.state.modelBones.keys()],
                 modelBoneNames: (() => {
                     const names = [];
