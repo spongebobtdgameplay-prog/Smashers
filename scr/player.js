@@ -789,19 +789,30 @@ export function createFighter(THREE, options = {}) {
                 applyModelBonePose("LowerArmL", -0.17 + Math.max(0, swing) * 0.12, 0, 0);
                 applyModelBonePose("LowerArmR", -0.17 + Math.max(0, -swing) * 0.12, 0, 0);
 
-                // Extend the actual wrist along the character's +Z forward
-                // axis during the jab. This keeps the visible glove and its
-                // swept collision capsule travelling together.
+            }
+
+            // Apply the glove extension after the animation mixer. A matched
+            // punch clip also writes WristR each frame; placing this outside
+            // the manual-pose-only branch makes the visible glove and sweep
+            // move together for both animated and procedural rigs.
+            if (state.model) {
                 const rightWrist = state.modelBones.get("WristR");
                 const wristBase = state.baseBonePositions.get("WristR");
                 if (rightWrist && wristBase) {
                     const extension = state.attackTimer > 0
                         ? Math.sin(
                             (1 - state.attackTimer / state.attackDuration) * Math.PI
-                        ) * 0.23
+                        ) * 0.32
                         : 0;
-                    rightWrist.position.copy(wristBase);
-                    rightWrist.position.z += extension;
+
+                    if (state.mixer && state.actions.has("punch")) {
+                        // The mixer has just restored this frame's animated
+                        // wrist pose, so add extension without accumulating it.
+                        rightWrist.position.z += extension;
+                    } else {
+                        rightWrist.position.copy(wristBase);
+                        rightWrist.position.z += extension;
+                    }
                 }
             }
 
