@@ -1099,10 +1099,107 @@ function installQaBridge() {
         }
     }
 
+    function testNaturalPunchSweep(attackerName = "player") {
+        const attacker = attackerName === "opponent" ? opponent : player;
+        const target = attacker === player ? opponent : player;
+        const originalAttackerPosition = attacker.position.clone();
+        const originalTargetPosition = target.position.clone();
+        const originalPhase = game.phase;
+        const originalPaused = game.paused;
+        const originalFinished = game.finished;
+        const originalRoundDamage = { ...game.roundDamage };
+        const originalKnockdowns = { ...game.knockdowns };
+        const distances = [0.88, 0.95, 1.05, 1.15, 1.25, 1.35, 1.5];
+        const results = [];
+
+        try {
+            game.phase = "fight";
+            game.paused = false;
+            game.finished = false;
+
+            for (const distance of distances) {
+                attacker.reset();
+                target.reset();
+                attacker.position.set(-distance / 2, 0.18, 0);
+                target.position.set(distance / 2, 0.18, 0);
+                attacker.setFacing(target.position.x - attacker.position.x);
+                target.setFacing(attacker.position.x - target.position.x);
+
+                const started = attacker.attack();
+                let hit = false;
+                let zone = null;
+                let damage = 0;
+                let fist = null;
+
+                if (started) {
+                    for (let frame = 0; frame < 16; frame += 1) {
+                        attacker.update(1 / 60);
+                        target.update(1 / 60);
+
+                        fist = attacker.getPunchHitbox();
+                        const hurtbox = punchHitsHurtboxes(
+                            fist,
+                            target.getHurtboxes()
+                        );
+
+                        if (!hurtbox) continue;
+
+                        zone = hurtbox.zone;
+                        const before = target.health;
+                        hit = resolvePunch(
+                            attacker,
+                            target,
+                            attacker === player
+                                ? CONFIG.playerDamage
+                                : CONFIG.opponentDamage
+                        );
+                        damage = before - target.health;
+                        if (hit) break;
+                    }
+                }
+
+                const forward = attacker.getForwardVector();
+                const gloveOffset = fist
+                    ? fist.end.clone().sub(attacker.position)
+                    : new THREE.Vector3();
+
+                results.push({
+                    distance,
+                    started,
+                    hit,
+                    zone,
+                    damage,
+                    gloveForwardReach: gloveOffset.dot(forward),
+                    glove: fist
+                        ? {
+                            start: fist.start.toArray(),
+                            end: fist.end.toArray(),
+                            radius: fist.radius
+                        }
+                        : null
+                });
+            }
+
+            return results;
+        } finally {
+            attacker.reset();
+            target.reset();
+            attacker.position.copy(originalAttackerPosition);
+            target.position.copy(originalTargetPosition);
+            game.phase = originalPhase;
+            game.paused = originalPaused;
+            game.finished = originalFinished;
+            game.roundDamage = originalRoundDamage;
+            game.knockdowns = originalKnockdowns;
+            updateHealthUI();
+        }
+    }
+
     window.__SMASHERS_QA__ = {
         snapshot,
         setHitboxDebug,
-        testPunchContact
+        testPunchContact,
+        testNaturalPunchSweep
     };
 }
 
