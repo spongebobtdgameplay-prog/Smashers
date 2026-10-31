@@ -68,3 +68,27 @@ test("punch contact returns the actual hurtbox zone", () => {
   ];
   assert.equal(punchHitsHurtboxes(punch, hurtboxes)?.zone, "torso");
 });
+
+test("diagonal collision resolves both axes and keeps both fighters in bounds", () => {
+  const a = { x: -0.15, z: -0.10 };
+  const b = { x: 0.15, z: 0.10 };
+  const result = resolveFighterPair(a, b, 0.5, 0.5, bounds);
+  assert.equal(result.separated, true);
+  assert.ok(result.distance >= 0.999);
+  for (const p of [a, b]) {
+    assert.ok(p.x >= bounds.minX + 0.5 && p.x <= bounds.maxX - 0.5);
+    assert.ok(p.z >= bounds.minZ + 0.5 && p.z <= bounds.maxZ - 0.5);
+  }
+});
+
+test("zero-length punch query remains finite and only hits overlapping targets", () => {
+  const point = { x: 0, y: 1.2, z: 0 };
+  assert.equal(
+    segmentSphereHit(point, point, { x: 0.1, y: 1.2, z: 0 }, 0.2),
+    true
+  );
+  assert.equal(
+    segmentSphereHit(point, point, { x: 0.5, y: 1.2, z: 0 }, 0.2),
+    false
+  );
+});
