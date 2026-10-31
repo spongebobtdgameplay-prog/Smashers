@@ -920,6 +920,13 @@ function installQaBridge() {
                 modelLoaded: Boolean(player.state.model),
                 modelMeshCount: countModelMeshes(player),
                 bones: [...player.state.modelBones.keys()],
+                modelBoneNames: (() => {
+                    const names = [];
+                    player.state.model?.traverse((object) => {
+                        if (object.isBone) names.push(object.name);
+                    });
+                    return names;
+                })(),
                 hurtboxes: player.getHurtboxes().map((box) => ({
                     zone: box.zone,
                     radius: box.radius,
@@ -933,6 +940,13 @@ function installQaBridge() {
                 modelLoaded: Boolean(opponent.state.model),
                 modelMeshCount: countModelMeshes(opponent),
                 bones: [...opponent.state.modelBones.keys()],
+                modelBoneNames: (() => {
+                    const names = [];
+                    opponent.state.model?.traverse((object) => {
+                        if (object.isBone) names.push(object.name);
+                    });
+                    return names;
+                })(),
                 hurtboxes: opponent.getHurtboxes().map((box) => ({
                     zone: box.zone,
                     radius: box.radius,
