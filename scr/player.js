@@ -8,7 +8,8 @@ export function createFighter(THREE, options = {}) {
         maxHealth = 100,
         loader = null,
         modelUrl = "",
-        modelUrls = null
+        modelUrls = null,
+        modelRotation = [0, 0, 0]
     } = options;
 
     const root = new THREE.Group();
@@ -279,6 +280,14 @@ export function createFighter(THREE, options = {}) {
     }
 
     function setupBoxerModel(model, animations) {
+        // Some Quaternius exports are Z-up. Apply their authored axis
+        // correction before measuring bounds so the fighter is Y-up.
+        model.rotation.set(
+            modelRotation[0] ?? 0,
+            modelRotation[1] ?? 0,
+            modelRotation[2] ?? 0
+        );
+
         // Match the Infinity Store loader: establish world matrices before
         // measuring the imported skinned rig or calculating its fit scale.
         model.updateMatrixWorld(true);
