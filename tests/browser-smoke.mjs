@@ -161,6 +161,12 @@ try {
     () => window.__SMASHERS_QA__.testNaturalPunchSweep("player")
   );
   console.log("NATURAL PUNCH DISTANCE SWEEP", JSON.stringify(naturalPunches));
+  console.log("RIG POSE DIAGNOSTICS", JSON.stringify({
+    player: snapshot.player.rigPose,
+    opponent: snapshot.opponent.rigPose,
+    playerActions: snapshot.player.animationActions,
+    opponentActions: snapshot.opponent.animationActions
+  }));
   assert.ok(
     naturalPunches.some(result => result.hit),
     "a punch should naturally connect at a valid in-ring separation"
