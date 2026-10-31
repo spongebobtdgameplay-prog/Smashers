@@ -63,8 +63,10 @@ const CONFIG = Object.freeze({
     }
 });
 
-const BOXER_MODEL_URL =
-    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb";
+const BOXER_MODEL_URLS = [
+    new URL("../assets/models/worker.glb", import.meta.url).href,
+    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb"
+];
 
 const game = {
     paused: false,
@@ -139,7 +141,7 @@ async function initializeWorld() {
         shortsColor: 0xe52d42,
         position: [-2.3, 0.18, 0],
         loader,
-        modelUrl: BOXER_MODEL_URL
+        modelUrls: BOXER_MODEL_URLS
     });
 
     opponent = createFighter(THREE, {
