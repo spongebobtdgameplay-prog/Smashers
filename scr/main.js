@@ -72,7 +72,7 @@ const BOXER_MODEL_URLS = [
     "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb"
 ];
 
-const BOXER_MODEL_ROTATION = [-Math.PI / 2, 0, 0];
+const BOXER_MODEL_ROTATION = [0, 0, 0];
 
 const game = {
     paused: false,
