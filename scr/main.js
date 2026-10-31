@@ -1133,6 +1133,9 @@ function installQaBridge() {
                 let zone = null;
                 let damage = 0;
                 let fist = null;
+                let maxForwardReach = -Infinity;
+                let minimumContactGap = Infinity;
+                let peakFist = null;
 
                 if (started) {
                     for (let frame = 0; frame < 16; frame += 1) {
@@ -1140,11 +1143,37 @@ function installQaBridge() {
                         target.update(1 / 60);
 
                         fist = attacker.getPunchHitbox();
-                        const hurtbox = punchHitsHurtboxes(
-                            fist,
-                            target.getHurtboxes()
-                        );
+                        const forward = attacker.getForwardVector();
+                        const reach = fist.end.clone()
+                            .sub(attacker.position)
+                            .dot(forward);
 
+                        if (reach > maxForwardReach) {
+                            maxForwardReach = reach;
+                            peakFist = {
+                                start: fist.start.toArray(),
+                                end: fist.end.toArray(),
+                                radius: fist.radius
+                            };
+                        }
+
+                        const hurtboxes = target.getHurtboxes();
+                        for (const box of hurtboxes) {
+                            const segment = fist.end.clone().sub(fist.start);
+                            const lengthSq = segment.lengthSq();
+                            const t = lengthSq > 1e-8
+                                ? THREE.MathUtils.clamp(
+                                    box.center.clone().sub(fist.start).dot(segment) / lengthSq,
+                                    0,
+                                    1
+                                )
+                                : 0;
+                            const closest = fist.start.clone().addScaledVector(segment, t);
+                            const gap = closest.distanceTo(box.center) - fist.radius - box.radius;
+                            minimumContactGap = Math.min(minimumContactGap, gap);
+                        }
+
+                        const hurtbox = punchHitsHurtboxes(fist, hurtboxes);
                         if (!hurtbox) continue;
 
                         zone = hurtbox.zone;
@@ -1172,7 +1201,10 @@ function installQaBridge() {
                     hit,
                     zone,
                     damage,
-                    gloveForwardReach: gloveOffset.dot(forward),
+                    maxGloveForwardReach: maxForwardReach,
+                    minimumContactGap,
+                    finalGloveForwardReach: gloveOffset.dot(forward),
+                    peakFist,
                     glove: fist
                         ? {
                             start: fist.start.toArray(),
