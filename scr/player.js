@@ -68,6 +68,7 @@ export function createFighter(THREE, options = {}) {
         modelScale: 1,
         modelScaledSize: null,
         modelOrigin: null,
+        accessoryTransforms: null,
         attackHitResolved: false
     };
 
@@ -334,6 +335,39 @@ export function createFighter(THREE, options = {}) {
         }
 
         // Boxing trunks are attached to the pelvis so they follow the rig.
+        // These imported bones carry very large local transform scales.
+        // Cancel that inherited scale for accessory geometry so gloves and
+        // trunks keep their intended world-space dimensions.
+        function attachAccessoryInWorldUnits(parent, mesh, desiredPosition, desiredScale = [1, 1, 1]) {
+            parent.updateMatrixWorld(true);
+
+            const inheritedScale = parent.getWorldScale(new THREE.Vector3());
+            const safeX = Math.max(Math.abs(inheritedScale.x), 0.0001);
+            const safeY = Math.max(Math.abs(inheritedScale.y), 0.0001);
+            const safeZ = Math.max(Math.abs(inheritedScale.z), 0.0001);
+
+            mesh.position.set(
+                desiredPosition[0] / safeX,
+                desiredPosition[1] / safeY,
+                desiredPosition[2] / safeZ
+            );
+            mesh.scale.set(
+                desiredScale[0] / safeX,
+                desiredScale[1] / safeY,
+                desiredScale[2] / safeZ
+            );
+            mesh.castShadow = true;
+            parent.add(mesh);
+            mesh.updateMatrixWorld(true);
+
+            return {
+                inheritedScale: inheritedScale.toArray(),
+                localPosition: mesh.position.toArray(),
+                localScale: mesh.scale.toArray(),
+                worldScale: mesh.getWorldScale(new THREE.Vector3()).toArray()
+            };
+        }
+
         const hips = state.modelBones.get("Hips");
         if (hips) {
             const trunks = new THREE.Mesh(
@@ -344,9 +378,14 @@ export function createFighter(THREE, options = {}) {
                 })
             );
             trunks.name = "SmashersBoxingTrunks";
-            trunks.position.y = -0.13;
-            trunks.castShadow = true;
-            hips.add(trunks);
+            state.accessoryTransforms = {
+                trunks: attachAccessoryInWorldUnits(
+                    hips,
+                    trunks,
+                    [0, -0.13, 0],
+                    [1, 1, 1]
+                )
+            };
         }
 
         // Add boxing gloves to the model's wrist bones.
@@ -363,10 +402,16 @@ export function createFighter(THREE, options = {}) {
                 })
             );
             glove.name = `SmashersBoxingGlove.${side}`;
-            glove.scale.set(1.08, 0.94, 1.28);
-            glove.position.set(0, -0.015, 0.055);
-            glove.castShadow = true;
-            wrist.add(glove);
+
+            const transform = attachAccessoryInWorldUnits(
+                wrist,
+                glove,
+                [0, -0.015, 0.055],
+                [1.08, 0.94, 1.28]
+            );
+
+            state.accessoryTransforms.gloves ??= {};
+            state.accessoryTransforms.gloves[side] = transform;
             state.modelGloves.set(side, glove);
         }
 
