@@ -19,15 +19,15 @@ export function createWorld(THREE, canvas, viewport) {
     // ========================================
 
     const camera = new THREE.PerspectiveCamera(
-        45,
+        42,
         1,
         0.1,
-        150
+        180
     );
 
     // Side-on fighting-game camera with some depth.
-    camera.position.set(0, 6.5, 17);
-    camera.lookAt(0, 1.15, 0);
+    camera.position.set(0, 8.0, 20.0);
+    camera.lookAt(0, 1.45, -0.75);
 
     // ========================================
     // RENDERER
@@ -212,10 +212,11 @@ export function createWorld(THREE, canvas, viewport) {
         metalness: 0.55
     });
 
-    const ropeMaterial = new THREE.MeshStandardMaterial({
-        color: 0xb8bdc9,
-        roughness: 0.65
-    });
+    const ropeMaterials = [
+        new THREE.MeshStandardMaterial({ color: 0xe23a48, roughness: 0.55 }),
+        new THREE.MeshStandardMaterial({ color: 0xe4e6ec, roughness: 0.58 }),
+        new THREE.MeshStandardMaterial({ color: 0x315dff, roughness: 0.55 })
+    ];
 
     // ========================================
     // ARENA
@@ -240,6 +241,20 @@ export function createWorld(THREE, canvas, viewport) {
 
     arena.add(ground);
 
+    // Elevated venue deck beneath the ring, with a visible apron.
+    const venueDeck = new THREE.Mesh(
+        new THREE.BoxGeometry(22, 0.52, 14),
+        new THREE.MeshStandardMaterial({
+            color: 0x171922,
+            roughness: 0.74,
+            metalness: 0.18
+        })
+    );
+    venueDeck.position.set(0, -0.48, 0);
+    venueDeck.receiveShadow = true;
+    venueDeck.castShadow = true;
+    arena.add(venueDeck);
+
     // Fighting platform
 
     const platform = new THREE.Mesh(
@@ -256,6 +271,103 @@ export function createWorld(THREE, canvas, viewport) {
     platform.receiveShadow = true;
 
     arena.add(platform);
+
+    // The canvas is a separate material surface, not a bare dark box.
+    const ringCanvas = document.createElement("canvas");
+    ringCanvas.width = 1024;
+    ringCanvas.height = 512;
+    const ringContext = ringCanvas.getContext("2d");
+    ringContext.fillStyle = "#aeb4bf";
+    ringContext.fillRect(0, 0, ringCanvas.width, ringCanvas.height);
+    ringContext.fillStyle = "#202b3a";
+    ringContext.fillRect(24, 24, ringCanvas.width - 48, ringCanvas.height - 48);
+    ringContext.fillStyle = "#c3c8d0";
+    ringContext.fillRect(36, 36, ringCanvas.width - 72, ringCanvas.height - 72);
+    ringContext.strokeStyle = "#e64a55";
+    ringContext.lineWidth = 9;
+    ringContext.strokeRect(56, 56, ringCanvas.width - 112, ringCanvas.height - 112);
+    ringContext.strokeStyle = "#315dff";
+    ringContext.lineWidth = 5;
+    ringContext.strokeRect(74, 74, ringCanvas.width - 148, ringCanvas.height - 148);
+    ringContext.fillStyle = "rgba(31, 41, 56, 0.10)";
+    ringContext.fillRect(0, 0, ringCanvas.width, ringCanvas.height);
+    ringContext.fillStyle = "#243248";
+    ringContext.font = "900 76px Arial";
+    ringContext.textAlign = "center";
+    ringContext.textBaseline = "middle";
+    ringContext.fillText("SMASHERS", ringCanvas.width / 2, ringCanvas.height / 2 + 4);
+    ringContext.font = "700 20px Arial";
+    ringContext.fillStyle = "#e64a55";
+    ringContext.fillText("WORLD BOXING SERIES", ringCanvas.width / 2, ringCanvas.height / 2 + 58);
+
+    const ringTexture = new THREE.CanvasTexture(ringCanvas);
+    ringTexture.colorSpace = THREE.SRGBColorSpace;
+
+    const canvasSurface = new THREE.Mesh(
+        new THREE.PlaneGeometry(11.72, 6.72),
+        new THREE.MeshStandardMaterial({
+            map: ringTexture,
+            roughness: 0.94,
+            metalness: 0
+        })
+    );
+    canvasSurface.rotation.x = -Math.PI / 2;
+    canvasSurface.position.y = 0.184;
+    canvasSurface.receiveShadow = true;
+    arena.add(canvasSurface);
+
+    // Raised apron boards conceal the raw platform edges.
+    const apronMaterial = new THREE.MeshStandardMaterial({
+        color: 0x111722,
+        roughness: 0.62,
+        metalness: 0.25
+    });
+    const apronAccentRed = new THREE.MeshStandardMaterial({
+        color: 0xe23a48,
+        emissive: 0x350b10,
+        roughness: 0.48
+    });
+    const apronAccentBlue = new THREE.MeshStandardMaterial({
+        color: 0x315dff,
+        emissive: 0x0b1640,
+        roughness: 0.48
+    });
+
+    const apronFront = new THREE.Mesh(
+        new THREE.BoxGeometry(11.9, 0.72, 0.16),
+        apronMaterial
+    );
+    apronFront.position.set(0, -0.18, halfDepth + 0.035);
+    apronFront.castShadow = true;
+    arena.add(apronFront);
+
+    const apronBack = apronFront.clone();
+    apronBack.position.z = -halfDepth - 0.035;
+    arena.add(apronBack);
+
+    for (const side of [-1, 1]) {
+        const apronSide = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.72, 7.0),
+            apronMaterial
+        );
+        apronSide.position.set(side * (halfWidth + 0.035), -0.18, 0);
+        apronSide.castShadow = true;
+        arena.add(apronSide);
+
+        const accent = new THREE.Mesh(
+            new THREE.BoxGeometry(0.035, 0.08, 6.5),
+            side < 0 ? apronAccentRed : apronAccentBlue
+        );
+        accent.position.set(side * (halfWidth + 0.12), -0.10, 0);
+        arena.add(accent);
+    }
+
+    const apronFrontStripe = new THREE.Mesh(
+        new THREE.BoxGeometry(11.55, 0.055, 0.025),
+        apronAccentRed
+    );
+    apronFrontStripe.position.set(0, 0.10, halfDepth + 0.125);
+    arena.add(apronFrontStripe);
 
     // Platform perimeter
 
@@ -323,14 +435,15 @@ export function createWorld(THREE, canvas, viewport) {
 
         const length = direction.length();
 
+        const ropeIndex = Math.max(0, Math.min(2, ropeHeights.indexOf(height)));
         const rope = new THREE.Mesh(
             new THREE.CylinderGeometry(
-                0.045,
-                0.045,
+                0.052,
+                0.052,
                 length,
-                8
+                10
             ),
-            ropeMaterial
+            ropeMaterials[ropeIndex]
         );
 
         rope.position.copy(a).add(b).multiplyScalar(0.5);
@@ -344,7 +457,7 @@ export function createWorld(THREE, canvas, viewport) {
         arena.add(rope);
     }
 
-    const ropeHeights = [0.85, 1.48, 2.1];
+    const ropeHeights = [0.82, 1.45, 2.08];
 
     for (const height of ropeHeights) {
         addRope(
@@ -376,16 +489,27 @@ export function createWorld(THREE, canvas, viewport) {
     // ARENA DECORATION
     // ========================================
 
-    const grid = new THREE.GridHelper(
-        80,
-        40,
-        0x403b48,
-        0x292630
-    );
+    // Four padded corners make the rope posts read as a real boxing ring.
+    const cornerPadMaterials = [
+        new THREE.MeshStandardMaterial({ color: 0xe23a48, roughness: 0.58 }),
+        new THREE.MeshStandardMaterial({ color: 0x315dff, roughness: 0.58 }),
+        new THREE.MeshStandardMaterial({ color: 0xf0f0ed, roughness: 0.72 }),
+        new THREE.MeshStandardMaterial({ color: 0xf0f0ed, roughness: 0.72 })
+    ];
 
-    grid.position.y = -0.205;
-
-    arena.add(grid);
+    postPositions.forEach(([x, z], index) => {
+        const pad = new THREE.Mesh(
+            new THREE.BoxGeometry(0.30, 0.86, 0.22),
+            cornerPadMaterials[index]
+        );
+        pad.position.set(
+            x * 0.985,
+            1.54,
+            z > 0 ? z - 0.17 : z + 0.17
+        );
+        pad.castShadow = true;
+        arena.add(pad);
+    });
 
     // Side accent lights
 
@@ -410,6 +534,153 @@ export function createWorld(THREE, canvas, viewport) {
     arena.add(rightAccent);
 
     scene.add(arena);
+
+    // ========================================
+    // STADIUM STRUCTURE
+    // ========================================
+
+    const stadium = new THREE.Group();
+    stadium.name = "SmashersStadium";
+
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0x171923,
+        roughness: 0.82,
+        metalness: 0.12
+    });
+    const structureMaterial = new THREE.MeshStandardMaterial({
+        color: 0x292d39,
+        roughness: 0.62,
+        metalness: 0.42
+    });
+    const redLedMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe23a48,
+        emissive: 0x9c101b,
+        emissiveIntensity: 1.15,
+        roughness: 0.38
+    });
+    const blueLedMaterial = new THREE.MeshStandardMaterial({
+        color: 0x315dff,
+        emissive: 0x102b9c,
+        emissiveIntensity: 1.15,
+        roughness: 0.38
+    });
+
+    const rearWall = new THREE.Mesh(
+        new THREE.BoxGeometry(29, 13, 0.9),
+        wallMaterial
+    );
+    rearWall.position.set(0, 6.0, -13.2);
+    stadium.add(rearWall);
+
+    for (const side of [-1, 1]) {
+        const sideWall = new THREE.Mesh(
+            new THREE.BoxGeometry(0.9, 12, 24),
+            wallMaterial
+        );
+        sideWall.position.set(side * 14.2, 5.7, -1.0);
+        stadium.add(sideWall);
+
+        const upperBand = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.24, 22),
+            side < 0 ? redLedMaterial : blueLedMaterial
+        );
+        upperBand.position.set(side * 13.72, 4.7, -1.0);
+        stadium.add(upperBand);
+
+        const lowerBand = upperBand.clone();
+        lowerBand.position.y = 2.45;
+        stadium.add(lowerBand);
+    }
+
+    const rearLed = new THREE.Mesh(
+        new THREE.BoxGeometry(27, 0.22, 0.18),
+        redLedMaterial
+    );
+    rearLed.position.set(0, 4.65, -12.65);
+    stadium.add(rearLed);
+
+    const rearBlueLed = rearLed.clone();
+    rearBlueLed.material = blueLedMaterial;
+    rearBlueLed.position.y = 2.5;
+    stadium.add(rearBlueLed);
+
+    // Scoreboard panel with canvas-rendered graphics (no external texture files).
+    const boardFrame = new THREE.Mesh(
+        new THREE.BoxGeometry(7.4, 3.0, 0.42),
+        structureMaterial
+    );
+    boardFrame.position.set(0, 8.5, -12.35);
+    stadium.add(boardFrame);
+
+    const boardCanvas = document.createElement("canvas");
+    boardCanvas.width = 1024;
+    boardCanvas.height = 420;
+    const boardContext = boardCanvas.getContext("2d");
+    boardContext.fillStyle = "#10141e";
+    boardContext.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+    boardContext.fillStyle = "#e23a48";
+    boardContext.fillRect(0, 0, 18, boardCanvas.height);
+    boardContext.fillStyle = "#315dff";
+    boardContext.fillRect(boardCanvas.width - 18, 0, 18, boardCanvas.height);
+    boardContext.textAlign = "center";
+    boardContext.fillStyle = "#f3f4f6";
+    boardContext.font = "900 82px Arial";
+    boardContext.fillText("SMASHERS", boardCanvas.width / 2, 150);
+    boardContext.font = "700 30px Arial";
+    boardContext.fillStyle = "#d2d7e0";
+    boardContext.fillText("CHAMPIONSHIP ARENA", boardCanvas.width / 2, 220);
+    boardContext.fillStyle = "#e23a48";
+    boardContext.fillRect(170, 275, 270, 10);
+    boardContext.fillStyle = "#315dff";
+    boardContext.fillRect(584, 275, 270, 10);
+    boardContext.font = "700 25px Arial";
+    boardContext.fillStyle = "#aeb6c4";
+    boardContext.fillText("FOUR ROUND BOUT", boardCanvas.width / 2, 355);
+
+    const boardTexture = new THREE.CanvasTexture(boardCanvas);
+    boardTexture.colorSpace = THREE.SRGBColorSpace;
+    const scoreboard = new THREE.Mesh(
+        new THREE.PlaneGeometry(7.0, 2.72),
+        new THREE.MeshBasicMaterial({ map: boardTexture })
+    );
+    scoreboard.position.set(0, 8.5, -12.10);
+    stadium.add(scoreboard);
+
+    // Overhead truss and arena lamps give the ring a defined visual space.
+    for (const z of [-4.8, 2.5]) {
+        const truss = new THREE.Mesh(
+            new THREE.BoxGeometry(25, 0.20, 0.24),
+            structureMaterial
+        );
+        truss.position.set(0, 11.2, z);
+        stadium.add(truss);
+    }
+
+    for (const x of [-9.5, -4.8, 4.8, 9.5]) {
+        const lamp = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.22, 0.34, 0.42, 10),
+            new THREE.MeshStandardMaterial({
+                color: 0xf0e3bd,
+                emissive: 0xc1a15d,
+                emissiveIntensity: 0.9
+            })
+        );
+        lamp.position.set(x, 10.8, 0);
+        lamp.rotation.x = Math.PI;
+        stadium.add(lamp);
+    }
+
+    const overheadWarm = new THREE.SpotLight(0xffe7c0, 105, 36, Math.PI / 5, 0.48, 1.4);
+    overheadWarm.position.set(-5, 12, 3);
+    overheadWarm.target.position.set(0, 0, 0);
+    scene.add(overheadWarm, overheadWarm.target);
+
+    const overheadCool = new THREE.SpotLight(0xd6e0ff, 90, 36, Math.PI / 5, 0.48, 1.4);
+    overheadCool.position.set(5, 12, -2);
+    overheadCool.target.position.set(0, 0, 0);
+    scene.add(overheadCool, overheadCool.target);
+
+    scene.add(stadium);
 
     // ========================================
     // STADIUM CROWD
@@ -537,9 +808,8 @@ export function createWorld(THREE, canvas, viewport) {
         0xc18d6d
     );
 
-    const legRotation = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(Math.PI / 2, 0, 0)
-    );
+    // CapsuleGeometry is already vertical; keep the crowd's legs upright.
+    const legRotation = new THREE.Quaternion();
 
     for (const side of [-1, 1]) {
         addAudiencePart(
@@ -721,13 +991,13 @@ export function createWorld(THREE, canvas, viewport) {
             const centerZ = (playerPosition.z + opponentPosition.z) * 0.5;
             const spread = Math.abs(playerPosition.x - opponentPosition.x);
             const desired = new THREE.Vector3(
-                centerX * 0.18,
-                6.5 + Math.min(0.5, spread * 0.025),
-                17.2 + Math.max(0, spread - 4.2) * 0.34
+                centerX * 0.12,
+                8.0 + Math.min(0.35, spread * 0.018),
+                20.0 + Math.max(0, spread - 4.2) * 0.25
             );
 
-            camera.position.lerp(desired, 1 - Math.exp(-delta * 3.2));
-            camera.lookAt(centerX * 0.72, 1.12, centerZ * 0.12);
+            camera.position.lerp(desired, 1 - Math.exp(-delta * 2.6));
+            camera.lookAt(centerX * 0.48, 1.45, -0.75 + centerZ * 0.10);
         }
 
         // Small referee movement keeps the official from looking frozen.
