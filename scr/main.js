@@ -948,6 +948,28 @@ function installQaBridge() {
         };
     }
 
+    function inspectRigPose(fighter) {
+        fighter.root.updateMatrixWorld(true);
+        const names = [
+            "ShoulderL", "UpperArmL", "LowerArmL", "WristL",
+            "ShoulderR", "UpperArmR", "LowerArmR", "WristR",
+            "Hips", "Chest", "Head"
+        ];
+
+        return Object.fromEntries(names.map((name) => {
+            const bone = fighter.state.modelBones.get(name);
+            if (!bone) return [name, null];
+
+            return [name, {
+                localPosition: bone.position.toArray(),
+                localRotation: bone.rotation.toArray(),
+                localScale: bone.scale.toArray(),
+                worldPosition: bone.getWorldPosition(new THREE.Vector3()).toArray(),
+                worldScale: bone.getWorldScale(new THREE.Vector3()).toArray()
+            }];
+        }));
+    }
+
     function countInstancedMeshes(group) {
         let count = 0;
         group.traverse((object) => {
@@ -979,6 +1001,7 @@ function installQaBridge() {
                 wristExtensionWorld: player.state.wristExtensionWorld ?? 0,
                 wristParentWorldScale: player.state.wristParentWorldScale ?? null,
                 wristExtensionLocal: player.state.wristExtensionLocal ?? 0,
+                rigPose: inspectRigPose(player),
                 bones: [...player.state.modelBones.keys()],
                 modelBoneNames: (() => {
                     const names = [];
@@ -1004,6 +1027,7 @@ function installQaBridge() {
                 wristExtensionWorld: opponent.state.wristExtensionWorld ?? 0,
                 wristParentWorldScale: opponent.state.wristParentWorldScale ?? null,
                 wristExtensionLocal: opponent.state.wristExtensionLocal ?? 0,
+                rigPose: inspectRigPose(opponent),
                 bones: [...opponent.state.modelBones.keys()],
                 modelBoneNames: (() => {
                     const names = [];
