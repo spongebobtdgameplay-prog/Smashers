@@ -898,21 +898,45 @@ function installQaBridge() {
             return { meshCount, visibleMeshCount, bounds: null, localPosition: null, localScale: null };
         }
 
-        const bounds = new THREE.Box3().setFromObject(fighter.state.model);
+        const model = fighter.state.model;
+        const bounds = new THREE.Box3().setFromObject(model);
         const size = bounds.getSize(new THREE.Vector3());
         const center = bounds.getCenter(new THREE.Vector3());
+        const meshDetails = [];
+
+        model.traverse((object) => {
+            if (!object.isMesh) return;
+
+            const meshBounds = new THREE.Box3().setFromObject(object);
+            const meshSize = meshBounds.getSize(new THREE.Vector3());
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+
+            meshDetails.push({
+                name: object.name,
+                type: object.type,
+                visible: object.visible,
+                worldSize: meshSize.toArray(),
+                materialColors: materials
+                    .filter((material) => material?.color)
+                    .map((material) => material.color.getHexString())
+            });
+        });
 
         return {
             meshCount,
             visibleMeshCount,
+            sourceSize: fighter.state.modelSourceSize,
+            appliedFitScale: fighter.state.modelScale,
+            scaledSourceSize: fighter.state.modelScaledSize,
+            localPosition: model.position.toArray(),
+            localScale: model.scale.toArray(),
             bounds: {
                 min: bounds.min.toArray(),
                 max: bounds.max.toArray(),
                 size: size.toArray(),
                 center: center.toArray()
             },
-            localPosition: fighter.state.model.position.toArray(),
-            localScale: fighter.state.model.scale.toArray()
+            meshDetails
         };
     }
 
