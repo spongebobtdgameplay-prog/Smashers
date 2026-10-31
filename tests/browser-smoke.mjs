@@ -151,7 +151,8 @@ try {
   assert.ok(snapshot.player.model.bounds?.size[1] > 1.5, "player model should have human-scale height");
   assert.ok(snapshot.opponent.model.bounds?.size[1] > 1.5, "opponent model should have human-scale height");
   for (const [label, model] of [["player", snapshot.player.model], ["opponent", snapshot.opponent.model]]) {
-    assert.ok(model.sourceSize?.[1] > model.sourceSize?.[0] * 2, `${label} raw GLB should be Y-up`);
+    assert.ok(Math.abs(Math.abs(model.localRotation?.[0] || 0) - Math.PI / 2) < 0.01, `${label} should apply the Z-up to Y-up correction`);
+    assert.ok(model.sourceSize?.[1] > model.sourceSize?.[0] * 2, `${label} fitted source should be Y-up`);
     assert.ok(model.appliedFitScale > 0.5 && model.appliedFitScale < 1.5, `${label} should use a sane model fit scale`);
     assert.ok(model.bounds.size[0] < 2.0, `${label} model should not be too wide`);
     assert.ok(model.bounds.size[2] < 2.0, `${label} model should not be too deep`);
