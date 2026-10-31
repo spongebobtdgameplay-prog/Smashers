@@ -4,6 +4,7 @@ import { createFighter } from "./player.js?v=20261030-smashers-boxing-008";
 import {
     clampFighterPosition,
     resolveFighterPair,
+    segmentSegmentDistanceSquared,
     punchHitsHurtboxes
 } from "./fight-physics.js?v=20261030-smashers-boxing-008";
 import { ServerPatcher } from "./v1-server.js";
