@@ -227,6 +227,8 @@ export function createWorld(THREE, canvas, viewport) {
 
     const ARENA_WIDTH = 12;
     const ARENA_DEPTH = 7;
+    const halfWidth = ARENA_WIDTH / 2;
+    const halfDepth = ARENA_DEPTH / 2;
 
     // Large ground plane
 
@@ -390,9 +392,6 @@ export function createWorld(THREE, canvas, viewport) {
     // ========================================
     // RING POSTS
     // ========================================
-
-    const halfWidth = ARENA_WIDTH / 2;
-    const halfDepth = ARENA_DEPTH / 2;
 
     const postPositions = [
         [-halfWidth, -halfDepth],
