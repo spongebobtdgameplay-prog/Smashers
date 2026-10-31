@@ -60,8 +60,11 @@ export function createFighter(THREE, options = {}) {
         mixer: null,
         actions: new Map(),
         activeAction: null,
+        activeActionName: "",
         modelBones: new Map(),
-        baseBoneQuaternions: new Map()
+        baseBoneQuaternions: new Map(),
+        modelGloves: new Map(),
+        attackHitResolved: false
     };
 
     function addMesh(geometry, material, parent, x, y, z) {
@@ -251,9 +254,10 @@ export function createFighter(THREE, options = {}) {
     // ONLINE BOXER MODEL
     // ========================================
 
-    function playModelAction(name, loop = true) {
+    function playModelAction(name, loop = true, restart = false) {
         const next = state.actions.get(name);
-        if (!next || state.activeAction === next) return;
+        if (!next) return;
+        if (state.activeAction === next && state.activeActionName === name && !restart) return;
 
         next.reset();
         next.enabled = true;
@@ -266,6 +270,7 @@ export function createFighter(THREE, options = {}) {
         }
 
         state.activeAction = next;
+        state.activeActionName = name;
     }
 
     function setupBoxerModel(model, animations) {
@@ -299,8 +304,9 @@ export function createFighter(THREE, options = {}) {
         });
 
         const boneNames = [
-            "Hips", "UpperArm.L", "LowerArm.L", "Wrist.L",
-            "UpperArm.R", "LowerArm.R", "Wrist.R"
+            "Head", "Neck", "Chest", "Torso", "Abdomen", "Hips",
+            "Shoulder.L", "UpperArm.L", "LowerArm.L", "Wrist.L",
+            "Shoulder.R", "UpperArm.R", "LowerArm.R", "Wrist.R"
         ];
 
         for (const name of boneNames) {
@@ -345,6 +351,7 @@ export function createFighter(THREE, options = {}) {
             glove.position.set(0, -0.015, 0.055);
             glove.castShadow = true;
             wrist.add(glove);
+            state.modelGloves.set(side, glove);
         }
 
         if (animations?.length) {
@@ -472,6 +479,89 @@ export function createFighter(THREE, options = {}) {
             return state.walking;
         },
 
+        get isAttacking() {
+            return state.attackTimer > 0.035 &&
+                !state.attackHitResolved &&
+                !state.knockedDown;
+        },
+
+        get hasLandedAttack() {
+            return state.attackHitResolved;
+        },
+
+        getHurtboxes() {
+            root.updateMatrixWorld(true);
+
+            const definitions = [
+                ["Head", 0.24, "head"],
+                ["Chest", 0.34, "torso"],
+                ["Torso", 0.34, "torso"],
+                ["Abdomen", 0.30, "body"],
+                ["Hips", 0.29, "body"],
+                ["UpperArm.L", 0.145, "arm"],
+                ["UpperArm.R", 0.145, "arm"]
+            ];
+
+            const boxes = [];
+            if (state.model) {
+                for (const [boneName, radius, zone] of definitions) {
+                    const bone = state.modelBones.get(boneName);
+                    if (!bone) continue;
+                    boxes.push({
+                        zone,
+                        radius,
+                        center: bone.getWorldPosition(new THREE.Vector3())
+                    });
+                }
+            }
+
+            if (!boxes.length) {
+                const fallback = [
+                    [0, 1.94, 0, 0.27, "head"],
+                    [0, 1.45, 0, 0.39, "torso"],
+                    [0, 1.05, 0, 0.34, "body"],
+                    [-0.43, 1.43, 0, 0.19, "arm"],
+                    [0.43, 1.43, 0, 0.19, "arm"]
+                ];
+
+                for (const [x, y, z, radius, zone] of fallback) {
+                    boxes.push({
+                        zone,
+                        radius,
+                        center: root.localToWorld(new THREE.Vector3(x, y, z))
+                    });
+                }
+            }
+
+            return boxes;
+        },
+
+        getPunchHitbox() {
+            root.updateMatrixWorld(true);
+
+            const lowerArm = state.modelBones.get("LowerArm.R");
+            const glove = state.modelGloves.get("R");
+            if (state.model && lowerArm && glove) {
+                return {
+                    start: lowerArm.getWorldPosition(new THREE.Vector3()),
+                    end: glove.getWorldPosition(new THREE.Vector3()),
+                    radius: 0.19
+                };
+            }
+
+            return {
+                start: rightArm.pivot.getWorldPosition(new THREE.Vector3()),
+                end: rightArm.glove.getWorldPosition(new THREE.Vector3()),
+                radius: 0.20
+            };
+        },
+
+        registerAttackHit() {
+            if (!state.attackTimer || state.attackHitResolved) return false;
+            state.attackHitResolved = true;
+            return true;
+        },
+
         move(dx, dz, delta, speed) {
             if (state.knockedDown) return;
 
@@ -511,7 +601,8 @@ export function createFighter(THREE, options = {}) {
 
             state.attackCooldown = 0.46;
             state.attackTimer = state.attackDuration;
-            if (state.actions.has("punch")) playModelAction("punch", false);
+            state.attackHitResolved = false;
+            if (state.actions.has("punch")) playModelAction("punch", false, true);
 
             return true;
         },
@@ -595,16 +686,19 @@ export function createFighter(THREE, options = {}) {
                 applyModelBonePose("LowerArm.R", -0.17 + Math.max(0, -swing) * 0.12, 0, 0);
             }
 
-            const downTarget = state.knockedDown ? -Math.PI * 0.46 : 0;
+            const downTarget = state.knockedDown ? -Math.PI * 0.49 : 0;
             root.rotation.z = THREE.MathUtils.lerp(
                 root.rotation.z,
                 downTarget,
-                1 - Math.exp(-delta * 8)
+                1 - Math.exp(-delta * 10)
             );
+            const targetHeight = state.dodgeTimer > 0 && !state.knockedDown
+                ? 0.10
+                : 0.18;
             root.position.y = THREE.MathUtils.lerp(
                 root.position.y,
-                state.knockedDown ? 0.08 : 0.18,
-                1 - Math.exp(-delta * 8)
+                targetHeight,
+                1 - Math.exp(-delta * 12)
             );
 
             state.attackCooldown = Math.max(
@@ -668,18 +762,11 @@ export function createFighter(THREE, options = {}) {
                 ? -0.25
                 : 0;
 
-            // Dodge crouch
-
-            if (state.dodgeTimer > 0) {
-                const progress = 1 -
-                    state.dodgeTimer / state.dodgeDuration;
-
-                root.position.y =
-                    0.18 - Math.sin(progress * Math.PI) * 0.12;
-
+            // Dodge lean. Height is controlled once above so the
+            // knockdown pose cannot be overwritten by the standing pose.
+            if (state.dodgeTimer > 0 && !state.knockedDown) {
                 torso.rotation.x = 0.12;
             } else {
-                root.position.y = 0.18;
                 torso.rotation.x = 0;
             }
 
@@ -696,14 +783,19 @@ export function createFighter(THREE, options = {}) {
             state.walking = false;
             state.blocking = false;
             state.attackTimer = 0;
-            if (state.actions.has("fall")) playModelAction("fall", false);
+            state.attackHitResolved = true;
+            state.dodgeTimer = 0;
+            state.dodgeCooldown = Math.max(state.dodgeCooldown, 0.2);
+            if (state.actions.has("fall")) playModelAction("fall", false, true);
         },
 
         standUp() {
             state.knockedDown = false;
+            state.attackHitResolved = true;
+            state.attackTimer = 0;
             root.rotation.z = 0;
             root.position.y = 0.18;
-            if (state.actions.has("idle")) playModelAction("idle");
+            if (state.actions.has("idle")) playModelAction("idle", true, true);
         },
 
         recover(health = 40) {
@@ -715,6 +807,7 @@ export function createFighter(THREE, options = {}) {
             state.health = state.maxHealth;
             state.attackCooldown = 0;
             state.attackTimer = 0;
+            state.attackHitResolved = false;
             state.dodgeCooldown = 0;
             state.dodgeTimer = 0;
             state.blocking = false;
