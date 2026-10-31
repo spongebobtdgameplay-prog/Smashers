@@ -110,16 +110,92 @@ export function segmentSphereHit(start, end, center, radius) {
   return dx * dx + dy * dy + dz * dz <= safeRadius * safeRadius;
 }
 
+export function segmentSegmentDistanceSquared(firstStart, firstEnd, secondStart, secondEnd) {
+  const d1x = firstEnd.x - firstStart.x;
+  const d1y = firstEnd.y - firstStart.y;
+  const d1z = firstEnd.z - firstStart.z;
+  const d2x = secondEnd.x - secondStart.x;
+  const d2y = secondEnd.y - secondStart.y;
+  const d2z = secondEnd.z - secondStart.z;
+  const rx = firstStart.x - secondStart.x;
+  const ry = firstStart.y - secondStart.y;
+  const rz = firstStart.z - secondStart.z;
+
+  const a = d1x * d1x + d1y * d1y + d1z * d1z;
+  const e = d2x * d2x + d2y * d2y + d2z * d2z;
+  const f = d2x * rx + d2y * ry + d2z * rz;
+  const epsilon = 1e-10;
+  let s = 0;
+  let t = 0;
+
+  if (a <= epsilon && e <= epsilon) {
+    return rx * rx + ry * ry + rz * rz;
+  }
+
+  if (a <= epsilon) {
+    t = clamp(f / e, 0, 1);
+  } else {
+    const c = d1x * rx + d1y * ry + d1z * rz;
+
+    if (e <= epsilon) {
+      s = clamp(-c / a, 0, 1);
+    } else {
+      const b = d1x * d2x + d1y * d2y + d1z * d2z;
+      const denominator = a * e - b * b;
+      s = denominator > epsilon
+        ? clamp((b * f - c * e) / denominator, 0, 1)
+        : 0;
+      t = (b * s + f) / e;
+
+      if (t < 0) {
+        t = 0;
+        s = clamp(-c / a, 0, 1);
+      } else if (t > 1) {
+        t = 1;
+        s = clamp((b - c) / a, 0, 1);
+      }
+    }
+  }
+
+  const dx = rx + d1x * s - d2x * t;
+  const dy = ry + d1y * s - d2y * t;
+  const dz = rz + d1z * s - d2z * t;
+  return dx * dx + dy * dy + dz * dz;
+}
+
+export function segmentCapsuleHit(
+  punchStart,
+  punchEnd,
+  punchRadius,
+  hurtStart,
+  hurtEnd,
+  hurtRadius
+) {
+  const combinedRadius = Math.max(0, punchRadius) + Math.max(0, hurtRadius);
+  return segmentSegmentDistanceSquared(
+    punchStart,
+    punchEnd,
+    hurtStart,
+    hurtEnd
+  ) <= combinedRadius * combinedRadius;
+}
+
 export function punchHitsHurtboxes(punch, hurtboxes) {
   if (!punch?.start || !punch?.end || !Number.isFinite(punch.radius)) return null;
 
   for (const hurtbox of hurtboxes || []) {
-    if (!hurtbox?.center || !Number.isFinite(hurtbox.radius)) continue;
-    if (segmentSphereHit(
+    if (!hurtbox || !Number.isFinite(hurtbox.radius)) continue;
+    const hurtStart = hurtbox.start || hurtbox.center;
+    const hurtEnd = hurtbox.end || hurtbox.center;
+    if (!hurtStart || !hurtEnd) continue;
+
+    if (segmentCapsuleHit(
       punch.start,
       punch.end,
-      hurtbox.center,
-      punch.radius + hurtbox.radius
+      punch.radius,
+      hurtStart,
+      hurtEnd,
+      hurtbox.radius
     )) {
       return hurtbox;
     }

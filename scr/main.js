@@ -1,13 +1,13 @@
-import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-007";
-import { createWorld } from "./world.js?v=20261030-smashers-boxing-007";
-import { createFighter } from "./player.js?v=20261030-smashers-boxing-007";
+import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-008";
+import { createWorld } from "./world.js?v=20261030-smashers-boxing-008";
+import { createFighter } from "./player.js?v=20261030-smashers-boxing-008";
 import {
     clampFighterPosition,
     resolveFighterPair,
     punchHitsHurtboxes
-} from "./fight-physics.js?v=20261030-smashers-boxing-007";
+} from "./fight-physics.js?v=20261030-smashers-boxing-008";
 import { ServerPatcher } from "./v1-server.js";
-import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-007";
+import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-008";
 
 // ============================================
 // SMASHERS — FOUR-ROUND BOXING MATCH
@@ -57,7 +57,7 @@ const CONFIG = Object.freeze({
     playerDamage: 12,
     opponentDamage: 8,
     playerAttackRange: 2.0,
-    opponentAttackRange: 1.0,
+    opponentAttackRange: 1.32,
     fighterRadius: 0.42,
     arenaBounds: {
         minX: -5.55,
@@ -130,6 +130,7 @@ function createHitboxDebugGroup(color) {
     });
 
     const hurtboxes = new THREE.Group();
+    const hurtboxCapsules = [];
     group.add(hurtboxes);
 
     const punchMaterial = new THREE.MeshBasicMaterial({
@@ -154,31 +155,64 @@ function createHitboxDebugGroup(color) {
     );
     group.add(punchBody, punchStart, punchEnd);
 
-    return { group, hurtboxes, material, punchBody, punchStart, punchEnd };
+    return { group, hurtboxes, hurtboxCapsules, material, punchBody, punchStart, punchEnd };
 }
 
 function updateOneHitboxDebug(fighter, debug) {
     const hurtboxes = fighter.getHurtboxes();
 
-    while (debug.hurtboxes.children.length < hurtboxes.length) {
-        debug.hurtboxes.add(new THREE.Mesh(
-            new THREE.SphereGeometry(1, 10, 8),
+    while (debug.hurtboxCapsules.length < hurtboxes.length) {
+        const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(1, 1, 1, 12),
             debug.material
-        ));
+        );
+        const startCap = new THREE.Mesh(
+            new THREE.SphereGeometry(1, 12, 10),
+            debug.material
+        );
+        const endCap = new THREE.Mesh(
+            new THREE.SphereGeometry(1, 12, 10),
+            debug.material
+        );
+        debug.hurtboxes.add(body, startCap, endCap);
+        debug.hurtboxCapsules.push({ body, startCap, endCap });
     }
 
-    for (let index = 0; index < debug.hurtboxes.children.length; index += 1) {
-        const mesh = debug.hurtboxes.children[index];
+    for (let index = 0; index < debug.hurtboxCapsules.length; index += 1) {
+        const meshes = debug.hurtboxCapsules[index];
         const hurtbox = hurtboxes[index];
 
         if (!hurtbox) {
-            mesh.visible = false;
+            meshes.body.visible = false;
+            meshes.startCap.visible = false;
+            meshes.endCap.visible = false;
             continue;
         }
 
-        mesh.visible = true;
-        mesh.position.copy(hurtbox.center);
-        mesh.scale.setScalar(hurtbox.radius);
+        const start = hurtbox.start || hurtbox.center;
+        const end = hurtbox.end || hurtbox.center;
+        if (!start || !end) continue;
+
+        const direction = end.clone().sub(start);
+        const length = direction.length();
+        const midpoint = start.clone().add(end).multiplyScalar(0.5);
+        const radius = hurtbox.radius;
+
+        meshes.body.visible = length > 1e-5;
+        meshes.body.position.copy(midpoint);
+        meshes.body.quaternion.setFromUnitVectors(
+            new THREE.Vector3(0, 1, 0),
+            length > 1e-5 ? direction.clone().normalize() : new THREE.Vector3(0, 1, 0)
+        );
+        meshes.body.scale.set(radius, Math.max(length, 1e-5), radius);
+
+        meshes.startCap.visible = true;
+        meshes.startCap.position.copy(start);
+        meshes.startCap.scale.setScalar(radius);
+
+        meshes.endCap.visible = true;
+        meshes.endCap.position.copy(end);
+        meshes.endCap.scale.setScalar(radius);
     }
 
     const punch = fighter.isAttacking ? fighter.getPunchHitbox() : null;
@@ -981,12 +1015,66 @@ function installQaBridge() {
     function snapshot() {
         const gl = world.renderer.getContext();
         const webglVersion = gl.getParameter(gl.VERSION);
+        const width = Math.max(1, viewport.clientWidth || window.innerWidth);
+        const height = Math.max(1, viewport.clientHeight || window.innerHeight);
+        world.camera.updateMatrixWorld(true);
+
+        const project = (point) => {
+            const projected = point.clone().project(world.camera);
+            return {
+                x: (projected.x * 0.5 + 0.5) * width,
+                y: (-projected.y * 0.5 + 0.5) * height
+            };
+        };
+
+        const ringScreenPoints = [
+            [-6, 0.18, -3.5], [6, 0.18, -3.5],
+            [-6, 0.18, 3.5], [6, 0.18, 3.5]
+        ].map(([x, y, z]) => project(new THREE.Vector3(x, y, z)));
+        const ringScreenWidth = Math.max(...ringScreenPoints.map(point => point.x)) -
+            Math.min(...ringScreenPoints.map(point => point.x));
+
+        const projectedModelHeight = (fighter) => {
+            const modelRoot = fighter.state.model || fighter.root;
+            const bounds = new THREE.Box3().setFromObject(modelRoot);
+            const corners = [];
+            for (const x of [bounds.min.x, bounds.max.x]) {
+                for (const y of [bounds.min.y, bounds.max.y]) {
+                    for (const z of [bounds.min.z, bounds.max.z]) {
+                        corners.push(project(new THREE.Vector3(x, y, z)));
+                    }
+                }
+            }
+            return Math.max(...corners.map(point => point.y)) -
+                Math.min(...corners.map(point => point.y));
+        };
+
+        const boxingGear = (fighter) => {
+            const counts = { singlets: 0, trunks: 0, gloves: 0, waistbands: 0 };
+            fighter.root.traverse((object) => {
+                if (!object.isMesh) return;
+                if (object.name === "SmashersBoxingSinglet") counts.singlets += 1;
+                if (object.name === "SmashersBoxingTrunks") counts.trunks += 1;
+                if (object.name.startsWith("SmashersBoxingGlove.")) counts.gloves += 1;
+                if (object.name === "SmashersTrunksWaistband") counts.waistbands += 1;
+            });
+            return counts;
+        };
 
         return {
             build: BUILD_LABEL,
             threeRevision: THREE.REVISION,
             webglVersion,
             sceneChildren: world.scene.children.length,
+            framing: {
+                ringWidthFraction: ringScreenWidth / width,
+                playerHeightPixels: projectedModelHeight(player),
+                opponentHeightPixels: projectedModelHeight(opponent)
+            },
+            boxingGear: {
+                player: boxingGear(player),
+                opponent: boxingGear(opponent)
+            },
             camera: {
                 position: world.camera.position.toArray(),
                 aspect: world.camera.aspect,
@@ -1013,6 +1101,8 @@ function installQaBridge() {
                 hurtboxes: player.getHurtboxes().map((box) => ({
                     zone: box.zone,
                     radius: box.radius,
+                    start: box.start.toArray(),
+                    end: box.end.toArray(),
                     center: box.center.toArray()
                 })),
                 position: player.position.toArray(),
@@ -1039,6 +1129,8 @@ function installQaBridge() {
                 hurtboxes: opponent.getHurtboxes().map((box) => ({
                     zone: box.zone,
                     radius: box.radius,
+                    start: box.start.toArray(),
+                    end: box.end.toArray(),
                     center: box.center.toArray()
                 })),
                 position: opponent.position.toArray(),
@@ -1198,17 +1290,17 @@ function installQaBridge() {
 
                         const hurtboxes = target.getHurtboxes();
                         for (const box of hurtboxes) {
-                            const segment = fist.end.clone().sub(fist.start);
-                            const lengthSq = segment.lengthSq();
-                            const t = lengthSq > 1e-8
-                                ? THREE.MathUtils.clamp(
-                                    box.center.clone().sub(fist.start).dot(segment) / lengthSq,
-                                    0,
-                                    1
+                            const hurtStart = box.start || box.center;
+                            const hurtEnd = box.end || box.center;
+                            const closestDistance = Math.sqrt(
+                                segmentSegmentDistanceSquared(
+                                    fist.start,
+                                    fist.end,
+                                    hurtStart,
+                                    hurtEnd
                                 )
-                                : 0;
-                            const closest = fist.start.clone().addScaledVector(segment, t);
-                            const gap = closest.distanceTo(box.center) - fist.radius - box.radius;
+                            );
+                            const gap = closestDistance - fist.radius - box.radius;
                             minimumContactGap = Math.min(minimumContactGap, gap);
                         }
 

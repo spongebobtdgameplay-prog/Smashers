@@ -137,10 +137,24 @@ try {
   }
   assert.ok(snapshot.player.modelBoneNames.length > 0, "player GLB should contain a real skeleton");
   assert.ok(snapshot.opponent.modelBoneNames.length > 0, "opponent GLB should contain a real skeleton");
-  assert.ok(snapshot.player.hurtboxes.length >= 5, "player should have rig-based hurtboxes");
-  assert.ok(snapshot.opponent.hurtboxes.length >= 5, "opponent should have rig-based hurtboxes");
+  assert.ok(snapshot.player.hurtboxes.length >= 10, "player should have rig-based capsule hurtboxes");
+  assert.ok(snapshot.opponent.hurtboxes.length >= 10, "opponent should have rig-based capsule hurtboxes");
   assert.ok(snapshot.player.hurtboxes.some(box => box.zone === "head"), "player head hurtbox should exist");
   assert.ok(snapshot.player.hurtboxes.some(box => box.zone === "torso"), "player torso hurtbox should exist");
+  assert.ok(snapshot.player.hurtboxes.some(box => box.zone === "arm"), "player arm hurtboxes should exist");
+  assert.ok(snapshot.player.hurtboxes.some(box => box.zone === "leg"), "player leg hurtboxes should exist");
+  assert.ok(snapshot.player.hurtboxes.every(box => box.start?.length === 3 && box.end?.length === 3), "player hurtboxes should expose both capsule endpoints");
+  assert.ok(snapshot.opponent.hurtboxes.every(box => box.start?.length === 3 && box.end?.length === 3), "opponent hurtboxes should expose both capsule endpoints");
+  for (const [label, gear] of [["player", snapshot.boxingGear.player], ["opponent", snapshot.boxingGear.opponent]]) {
+    assert.equal(gear.singlets, 1, `${label} should have a team-coloured boxing singlet`);
+    assert.equal(gear.trunks, 1, `${label} should have boxing trunks`);
+    assert.equal(gear.gloves, 2, `${label} should have two boxing gloves`);
+    assert.equal(gear.waistbands, 1, `${label} should have a boxing waistband`);
+  }
+  assert.ok(snapshot.framing.ringWidthFraction > 0.68, "ring should fill more of the gameplay view");
+  assert.ok(snapshot.framing.ringWidthFraction < 0.94, "camera should leave room around the ring");
+  assert.ok(snapshot.framing.playerHeightPixels > 82, "player should be large enough to read as a fighter");
+  assert.ok(snapshot.framing.opponentHeightPixels > 82, "opponent should be large enough to read as a fighter");
   assert.equal(snapshot.crowd.attached, true, "crowd should be attached to scene");
   assert.ok(snapshot.crowd.instancedMeshes >= 4, "crowd should contain instanced character meshes");
   assert.equal(snapshot.referee.attached, true, "referee should be attached to scene");
@@ -199,6 +213,9 @@ try {
     opponentBounds: snapshot.opponent.model.bounds,
     opponentMappedBones: snapshot.opponent.bones,
     playerHurtboxes: snapshot.player.hurtboxes.length,
+    playerBoxingGear: snapshot.boxingGear.player,
+    opponentBoxingGear: snapshot.boxingGear.opponent,
+    framing: snapshot.framing,
     audienceInstancedMeshes: snapshot.crowd.instancedMeshes,
     punchContact: punch,
     naturalPunches,

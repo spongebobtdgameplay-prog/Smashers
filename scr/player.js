@@ -402,10 +402,49 @@ export function createFighter(THREE, options = {}) {
             };
         }
 
+        const teamGearColor = options.singletColor ?? gloveColor;
+        const teamGearMaterial = new THREE.MeshStandardMaterial({
+            color: teamGearColor,
+            roughness: 0.72,
+            metalness: 0.02
+        });
+        const trimMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf0cf86,
+            roughness: 0.42,
+            metalness: 0.18
+        });
+
+        const chest = state.modelBones.get("Chest");
+        if (chest) {
+            const singlet = new THREE.Mesh(
+                new THREE.CapsuleGeometry(0.245, 0.24, 4, 12),
+                teamGearMaterial
+            );
+            singlet.name = "SmashersBoxingSinglet";
+            attachAccessoryInWorldUnits(
+                chest,
+                singlet,
+                [0, -0.015, 0.015],
+                [1, 0.82, 0.90]
+            );
+
+            const centerStripe = new THREE.Mesh(
+                new THREE.BoxGeometry(0.035, 0.32, 0.025),
+                trimMaterial
+            );
+            centerStripe.name = "SmashersSingletStripe";
+            attachAccessoryInWorldUnits(
+                chest,
+                centerStripe,
+                [0, -0.015, 0.225],
+                [1, 1, 1]
+            );
+        }
+
         const hips = state.modelBones.get("Hips");
         if (hips) {
             const trunks = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.22, 0.25, 0.22, 12),
+                new THREE.CylinderGeometry(0.17, 0.19, 0.20, 12),
                 new THREE.MeshStandardMaterial({
                     color: options.shortsColor ?? gloveColor,
                     roughness: 0.72
@@ -416,10 +455,22 @@ export function createFighter(THREE, options = {}) {
                 trunks: attachAccessoryInWorldUnits(
                     hips,
                     trunks,
-                    [0, -0.10, 0],
+                    [0, -0.08, 0],
                     [1, 1, 1]
                 )
             };
+
+            const waistband = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.19, 0.19, 0.045, 12),
+                trimMaterial
+            );
+            waistband.name = "SmashersTrunksWaistband";
+            attachAccessoryInWorldUnits(
+                hips,
+                waistband,
+                [0, 0.025, 0],
+                [1, 1, 1]
+            );
         }
 
         // Add boxing gloves to the model's wrist bones.
@@ -428,7 +479,7 @@ export function createFighter(THREE, options = {}) {
             if (!wrist) continue;
 
             const glove = new THREE.Mesh(
-                new THREE.SphereGeometry(0.105, 12, 10),
+                new THREE.SphereGeometry(0.13, 14, 12),
                 new THREE.MeshStandardMaterial({
                     color: gloveColor,
                     roughness: 0.48,
@@ -589,25 +640,41 @@ export function createFighter(THREE, options = {}) {
         getHurtboxes() {
             root.updateMatrixWorld(true);
 
-            const definitions = [
-                ["Head", 0.24, "head"],
-                ["Chest", 0.34, "torso"],
-                ["Torso", 0.34, "torso"],
-                ["Abdomen", 0.30, "body"],
-                ["Hips", 0.29, "body"],
-                ["UpperArmL", 0.145, "arm"],
-                ["UpperArmR", 0.145, "arm"]
-            ];
+            const bonePoint = (boneName) => {
+                const bone = state.modelBones.get(boneName);
+                return bone?.isBone
+                    ? bone.getWorldPosition(new THREE.Vector3())
+                    : null;
+            };
 
             const boxes = [];
             if (state.model) {
-                for (const [boneName, radius, zone] of definitions) {
-                    const bone = state.modelBones.get(boneName);
-                    if (!bone) continue;
+                const definitions = [
+                    ["head", "Head", "Head", 0.205],
+                    ["neck", "Neck", "Head", 0.105],
+                    ["torso", "Abdomen", "Chest", 0.235],
+                    ["body", "Hips", "Abdomen", 0.245],
+                    ["arm", "ShoulderL", "LowerArmL", 0.105],
+                    ["arm", "LowerArmL", "WristL", 0.09],
+                    ["arm", "ShoulderR", "LowerArmR", 0.105],
+                    ["arm", "LowerArmR", "WristR", 0.09],
+                    ["leg", "UpperLegL", "LowerLegL", 0.135],
+                    ["leg", "LowerLegL", "FootL", 0.105],
+                    ["leg", "UpperLegR", "LowerLegR", 0.135],
+                    ["leg", "LowerLegR", "FootR", 0.105]
+                ];
+
+                for (const [zone, startName, endName, radius] of definitions) {
+                    const start = bonePoint(startName);
+                    const end = bonePoint(endName);
+                    if (!start || !end) continue;
+
                     boxes.push({
                         zone,
                         radius,
-                        center: bone.getWorldPosition(new THREE.Vector3())
+                        start,
+                        end,
+                        center: start.clone().add(end).multiplyScalar(0.5)
                     });
                 }
             }
@@ -618,14 +685,19 @@ export function createFighter(THREE, options = {}) {
                     [0, 1.45, 0, 0.39, "torso"],
                     [0, 1.05, 0, 0.34, "body"],
                     [-0.43, 1.43, 0, 0.19, "arm"],
-                    [0.43, 1.43, 0, 0.19, "arm"]
+                    [0.43, 1.43, 0, 0.19, "arm"],
+                    [-0.22, 0.50, 0, 0.15, "leg"],
+                    [0.22, 0.50, 0, 0.15, "leg"]
                 ];
 
                 for (const [x, y, z, radius, zone] of fallback) {
+                    const center = root.localToWorld(new THREE.Vector3(x, y, z));
                     boxes.push({
                         zone,
                         radius,
-                        center: root.localToWorld(new THREE.Vector3(x, y, z))
+                        start: center.clone(),
+                        end: center.clone(),
+                        center
                     });
                 }
             }
@@ -774,21 +846,25 @@ export function createFighter(THREE, options = {}) {
                 state.mixer.update(delta);
             }
 
-            if (state.model && !state.actions.has("punch")) {
+            // The imported idle/walk clips leave the hands low. Apply the
+            // boxing guard after the mixer so both gloves stay near the face.
+            // During an actual punch, the authored punch clip owns the arm pose.
+            if (
+                state.model &&
+                !state.knockedDown &&
+                (!state.attackTimer || !state.actions.has("punch"))
+            ) {
                 const swing = state.walking ? Math.sin(state.walkPhase) : 0;
                 const punchAmount = state.attackTimer > 0
                     ? Math.sin((1 - state.attackTimer / state.attackDuration) * Math.PI) * 0.92
                     : 0;
-                const guardAmount = state.blocking ? 0.30 : 0;
-                const stepAmount = state.walking ? swing * 0.24 : 0;
+                const guardAmount = state.blocking ? 0.50 : 0.36;
+                const stepAmount = state.walking ? swing * 0.10 : 0;
 
-                // The Infinity Store rig uses these same Quaternius bone names.
-                // Keep both hands in a guard stance and drive the right jab locally.
                 applyModelBonePose("UpperArmL", -stepAmount - guardAmount, 0, 1.10 + guardAmount);
                 applyModelBonePose("UpperArmR", stepAmount - punchAmount - guardAmount, 0, -1.10 - guardAmount);
-                applyModelBonePose("LowerArmL", -0.17 + Math.max(0, swing) * 0.12, 0, 0);
-                applyModelBonePose("LowerArmR", -0.17 + Math.max(0, -swing) * 0.12, 0, 0);
-
+                applyModelBonePose("LowerArmL", -0.34 + Math.max(0, swing) * 0.08, 0, 0);
+                applyModelBonePose("LowerArmR", -0.34 + Math.max(0, -swing) * 0.08, 0, 0);
             }
 
             // Apply the glove extension after the animation mixer. A matched

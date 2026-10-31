@@ -4,6 +4,8 @@ import {
   clampFighterPosition,
   resolveFighterPair,
   segmentSphereHit,
+  segmentSegmentDistanceSquared,
+  segmentCapsuleHit,
   punchHitsHurtboxes
 } from "../scr/fight-physics.js";
 
@@ -91,4 +93,52 @@ test("zero-length punch query remains finite and only hits overlapping targets",
     segmentSphereHit(point, point, { x: 0.5, y: 1.2, z: 0 }, 0.2),
     false
   );
+});
+
+
+test("swept fist capsule hits a forearm capsule along the bone segment", () => {
+  const fistStart = { x: 0, y: 1.4, z: 0 };
+  const fistEnd = { x: 0, y: 1.4, z: 1.0 };
+  const armStart = { x: 0.28, y: 1.38, z: 0.75 };
+  const armEnd = { x: 0.28, y: 1.38, z: 1.35 };
+  assert.equal(segmentCapsuleHit(fistStart, fistEnd, 0.16, armStart, armEnd, 0.13), true);
+});
+
+test("swept fist capsule rejects a bone capsule outside combined radii", () => {
+  const fistStart = { x: 0, y: 1.4, z: 0 };
+  const fistEnd = { x: 0, y: 1.4, z: 1.0 };
+  const armStart = { x: 0.55, y: 1.38, z: 0.75 };
+  const armEnd = { x: 0.55, y: 1.38, z: 1.35 };
+  assert.equal(segmentCapsuleHit(fistStart, fistEnd, 0.16, armStart, armEnd, 0.13), false);
+});
+
+test("parallel capsule segments use their closest points rather than midpoint spheres", () => {
+  const a0 = { x: 0, y: 0, z: 0 };
+  const a1 = { x: 0, y: 0, z: 2 };
+  const b0 = { x: 0.5, y: 0, z: 0.5 };
+  const b1 = { x: 0.5, y: 0, z: 1.5 };
+  assert.ok(Math.abs(segmentSegmentDistanceSquared(a0, a1, b0, b1) - 0.25) < 1e-8);
+});
+
+test("capsule distance remains finite for a sphere against a zero-length segment", () => {
+  const point = { x: 0, y: 0, z: 0 };
+  const start = { x: 0.2, y: 0, z: 0 };
+  const end = { x: 0.2, y: 0, z: 1 };
+  assert.ok(Math.abs(segmentSegmentDistanceSquared(point, point, start, end) - 0.04) < 1e-8);
+});
+
+test("punch resolver accepts a rig capsule and reports its body zone", () => {
+  const punch = {
+    start: { x: 0, y: 1.4, z: 0 },
+    end: { x: 0, y: 1.4, z: 1.0 },
+    radius: 0.16
+  };
+  const hurtboxes = [{
+    zone: "torso",
+    start: { x: 0.22, y: 1.1, z: 0.75 },
+    end: { x: 0.22, y: 1.7, z: 0.75 },
+    center: { x: 0.22, y: 1.4, z: 0.75 },
+    radius: 0.18
+  }];
+  assert.equal(punchHitsHurtboxes(punch, hurtboxes)?.zone, "torso");
 });

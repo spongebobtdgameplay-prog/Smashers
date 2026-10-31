@@ -26,7 +26,7 @@ export function createWorld(THREE, canvas, viewport) {
     );
 
     // Side-on fighting-game camera with some depth.
-    camera.position.set(0, 8.0, 20.0);
+    camera.position.set(0, 6.9, 16.5);
     camera.lookAt(0, 1.45, -0.75);
 
     // ========================================
@@ -1008,12 +1008,12 @@ export function createWorld(THREE, canvas, viewport) {
             const spread = Math.abs(playerPosition.x - opponentPosition.x);
             const desired = new THREE.Vector3(
                 centerX * 0.12,
-                8.0 + Math.min(0.35, spread * 0.018),
-                20.0 + Math.max(0, spread - 4.2) * 0.25
+                6.9 + Math.min(0.22, spread * 0.012),
+                16.5 + Math.max(0, spread - 4.2) * 0.22
             );
 
             camera.position.lerp(desired, 1 - Math.exp(-delta * 2.6));
-            camera.lookAt(centerX * 0.48, 1.45, -0.75 + centerZ * 0.10);
+            camera.lookAt(centerX * 0.48, 1.40, -0.75 + centerZ * 0.10);
         }
 
         // Small referee movement keeps the official from looking frozen.
