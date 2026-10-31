@@ -68,8 +68,8 @@ const CONFIG = Object.freeze({
 });
 
 const BOXER_MODEL_URLS = [
-    new URL("../assets/models/casual-character.glb", import.meta.url).href,
-    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb"
+    new URL("../assets/models/worker.glb", import.meta.url).href,
+    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb"
 ];
 
 const game = {
