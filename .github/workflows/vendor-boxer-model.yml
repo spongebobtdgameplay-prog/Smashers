@@ -21,12 +21,12 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Download and verify the Infinity Store worker boxer model
+      - name: Download and verify the Infinity Store casual boxer model
         shell: bash
         run: |
           set -euo pipefail
-          model_path='assets/models/worker.glb'
-          expected='eb29e2adb795972e1f475cd25a000975fe260aa9'
+          model_path='assets/models/casual-character.glb'
+          expected='f31ba8b389268d4df6005cc62d4d7011de728bce'
 
           if [[ -f "$model_path" ]]; then
             echo 'The local boxer model is already present.'
@@ -35,7 +35,7 @@ jobs:
 
           mkdir -p assets/models
           curl --fail --location --retry 3 \
-            'https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb' \
+            'https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb' \
             --output "$model_path"
 
           actual="$(git hash-object "$model_path")"
