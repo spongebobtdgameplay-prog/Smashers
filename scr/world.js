@@ -449,6 +449,35 @@ export function createWorld(THREE, canvas, viewport) {
         }
     }
 
+    // Additional seating runs down both sides of the ring so the crowd
+    // surrounds the arena instead of appearing as a single backdrop.
+    for (const side of [-1, 1]) {
+        for (let row = 0; row < 3; row += 1) {
+            const seatY = 0.42 + row * 0.68;
+            const seatX = side * (7.3 + row * 0.9);
+
+            const bench = new THREE.Mesh(
+                new THREE.BoxGeometry(0.85, 0.24, 12.2),
+                new THREE.MeshStandardMaterial({
+                    color: row % 2 ? 0x34323d : 0x282630,
+                    roughness: 0.82
+                })
+            );
+            bench.position.set(seatX, seatY - 0.12, 0);
+            bench.receiveShadow = true;
+            crowd.add(bench);
+
+            for (let column = 0; column < 9; column += 1) {
+                audiencePositions.push({
+                    x: seatX,
+                    y: seatY,
+                    z: (column - 4) * 1.25,
+                    color: audienceColors[(column * 5 + row * 3 + (side > 0 ? 2 : 0)) % audienceColors.length]
+                });
+            }
+        }
+    }
+
     function addAudiencePart(geometry, count, placement, scaleFor, rotationFor, materialColor = 0xffffff) {
         const mesh = new THREE.InstancedMesh(
             geometry,
