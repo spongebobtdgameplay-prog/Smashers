@@ -85,8 +85,11 @@ const game = {
     roundDamage: { player: 0, opponent: 0 },
     roundWins: { player: 0, opponent: 0 },
     knockdowns: { player: 0, opponent: 0 },
-    knockdown: null
+    knockdown: null,
+    debugHitboxes: false
 };
+
+let hitboxDebugGroups = null;
 
 let world;
 let player;
@@ -110,6 +113,114 @@ const serverPatcher = new ServerPatcher({
 function setLoading(progress, status) {
     if (loadingProgress) loadingProgress.style.width = `${progress}%`;
     if (loadingStatus) loadingStatus.textContent = status;
+}
+
+function createHitboxDebugGroup(color) {
+    const group = new THREE.Group();
+    group.visible = false;
+    const material = new THREE.MeshBasicMaterial({
+        color,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.72,
+        depthTest: false,
+        depthWrite: false
+    });
+
+    const hurtboxes = new THREE.Group();
+    group.add(hurtboxes);
+
+    const punchMaterial = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.42,
+        depthTest: false,
+        depthWrite: false
+    });
+
+    const punchBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(1, 1, 1, 10),
+        punchMaterial
+    );
+    const punchStart = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 10, 8),
+        material
+    );
+    const punchEnd = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 10, 8),
+        material
+    );
+    group.add(punchBody, punchStart, punchEnd);
+
+    return { group, hurtboxes, material, punchBody, punchStart, punchEnd };
+}
+
+function updateOneHitboxDebug(fighter, debug) {
+    const hurtboxes = fighter.getHurtboxes();
+
+    while (debug.hurtboxes.children.length < hurtboxes.length) {
+        debug.hurtboxes.add(new THREE.Mesh(
+            new THREE.SphereGeometry(1, 10, 8),
+            debug.material
+        ));
+    }
+
+    for (let index = 0; index < debug.hurtboxes.children.length; index += 1) {
+        const mesh = debug.hurtboxes.children[index];
+        const hurtbox = hurtboxes[index];
+
+        if (!hurtbox) {
+            mesh.visible = false;
+            continue;
+        }
+
+        mesh.visible = true;
+        mesh.position.copy(hurtbox.center);
+        mesh.scale.setScalar(hurtbox.radius);
+    }
+
+    const punch = fighter.isAttacking ? fighter.getPunchHitbox() : null;
+    if (!punch) {
+        debug.punchBody.visible = false;
+        debug.punchStart.visible = false;
+        debug.punchEnd.visible = false;
+        return;
+    }
+
+    const direction = punch.end.clone().sub(punch.start);
+    const length = direction.length();
+    const midpoint = punch.start.clone().add(punch.end).multiplyScalar(0.5);
+
+    debug.punchBody.visible = true;
+    debug.punchBody.position.copy(midpoint);
+    debug.punchBody.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        direction.normalize()
+    );
+    debug.punchBody.scale.set(punch.radius, length, punch.radius);
+
+    debug.punchStart.visible = true;
+    debug.punchStart.position.copy(punch.start);
+    debug.punchStart.scale.setScalar(punch.radius);
+
+    debug.punchEnd.visible = true;
+    debug.punchEnd.position.copy(punch.end);
+    debug.punchEnd.scale.setScalar(punch.radius);
+}
+
+function updateHitboxDebug() {
+    if (!game.debugHitboxes || !hitboxDebugGroups || !player || !opponent) return;
+    updateOneHitboxDebug(player, hitboxDebugGroups.player);
+    updateOneHitboxDebug(opponent, hitboxDebugGroups.opponent);
+}
+
+function setHitboxDebug(enabled) {
+    game.debugHitboxes = Boolean(enabled);
+    if (hitboxDebugGroups) {
+        hitboxDebugGroups.player.group.visible = game.debugHitboxes;
+        hitboxDebugGroups.opponent.group.visible = game.debugHitboxes;
+    }
+    showMessage(game.debugHitboxes ? "HITBOX DEBUG ON" : "HITBOX DEBUG OFF", 900);
 }
 
 async function initializeWorld() {
@@ -161,6 +272,15 @@ async function initializeWorld() {
     // The missing scene attachment was why the ring rendered without boxers.
     world.scene.add(player.root);
     world.scene.add(opponent.root);
+
+    hitboxDebugGroups = {
+        player: createHitboxDebugGroup(0xff475d),
+        opponent: createHitboxDebugGroup(0x4e83ff)
+    };
+    world.scene.add(
+        hitboxDebugGroups.player.group,
+        hitboxDebugGroups.opponent.group
+    );
 
     player.setFacing(1);
     opponent.setFacing(-1);
@@ -660,11 +780,16 @@ if (rematchButton) {
 
 const CONTROL_KEYS = new Set([
     "KeyW", "KeyA", "KeyS", "KeyD",
-    "KeyJ", "KeyK", "Space", "Escape"
+    "KeyJ", "KeyK", "Space", "Escape", "F3"
 ]);
 
 window.addEventListener("keydown", (event) => {
     if (CONTROL_KEYS.has(event.code)) event.preventDefault();
+
+    if (event.code === "F3" && !event.repeat) {
+        setHitboxDebug(!game.debugHitboxes);
+        return;
+    }
 
     if (
         event.code === "Escape" &&
@@ -727,6 +852,7 @@ function animate() {
                 opponent?.position
             );
 
+            updateHitboxDebug();
             world.renderer.render(world.scene, world.camera);
         }
     } catch (error) {
