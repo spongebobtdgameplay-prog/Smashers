@@ -220,12 +220,30 @@ body.game-page {
 }
 
 #fight-center {
-    min-width: 92px;
+    min-width: 126px;
     padding: 10px 12px;
     border: 1px solid var(--game-border);
     background: var(--game-panel);
     text-align: center;
     backdrop-filter: blur(8px);
+}
+
+#round-indicator,
+#fight-score {
+    color: var(--game-muted);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 1.4px;
+    white-space: nowrap;
+}
+
+#round-indicator {
+    margin-bottom: 2px;
+}
+
+#fight-score {
+    margin-top: 5px;
+    font-variant-numeric: tabular-nums;
 }
 
 #fight-timer {
@@ -345,6 +363,79 @@ body.game-page {
     background: rgba(255, 255, 255, 0.07);
 }
 
+
+/* REFEREE COUNT */
+#referee-count {
+    position: absolute;
+    z-index: 9;
+    top: 23%;
+    left: 50%;
+    width: min(560px, calc(100% - 32px));
+    padding: 13px 18px;
+    border: 1px solid rgba(222, 184, 92, 0.7);
+    background: rgba(12, 11, 14, 0.88);
+    color: #f4d58a;
+    font-family: Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(16px, 3vw, 26px);
+    letter-spacing: 1.5px;
+    line-height: 1.25;
+    text-align: center;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+#referee-count[hidden] {
+    display: none !important;
+}
+
+/* OFFICIAL MATCH RESULT */
+#result-menu {
+    position: absolute;
+    z-index: 16;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(5, 5, 8, 0.78);
+    backdrop-filter: blur(8px);
+}
+
+#result-menu[hidden] {
+    display: none !important;
+}
+
+#result-title {
+    overflow-wrap: anywhere;
+}
+
+#result-detail {
+    margin: -12px 0 24px;
+    color: var(--game-muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+#rematch-button {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: var(--game-red);
+    color: white;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    cursor: pointer;
+}
+
+#rematch-button:hover {
+    background: #c92d27;
+}
+
 /* CONTROL HINTS */
 
 #controls-display {
@@ -417,8 +508,14 @@ body.game-page {
     }
 
     #fight-center {
-        min-width: 66px;
+        min-width: 94px;
         padding: 8px 6px;
+    }
+
+    #round-indicator,
+    #fight-score {
+        font-size: 6px;
+        letter-spacing: 0.8px;
     }
 
     #fight-timer {
