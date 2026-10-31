@@ -882,10 +882,170 @@ function showEngineFailure(error, phase = startupPhase) {
     if (loadingProgress) loadingProgress.style.width = "0%";
 }
 
+function installQaBridge() {
+    if (new URLSearchParams(window.location.search).get("qa") !== "1") return;
+
+    function countModelMeshes(fighter) {
+        let count = 0;
+        fighter.root.traverse((object) => {
+            if (object.isMesh) count += 1;
+        });
+        return count;
+    }
+
+    function countInstancedMeshes(group) {
+        let count = 0;
+        group.traverse((object) => {
+            if (object.isInstancedMesh) count += 1;
+        });
+        return count;
+    }
+
+    function snapshot() {
+        const gl = world.renderer.getContext();
+        const webglVersion = gl.getParameter(gl.VERSION);
+
+        return {
+            build: BUILD_LABEL,
+            threeRevision: THREE.REVISION,
+            webglVersion,
+            sceneChildren: world.scene.children.length,
+            camera: {
+                position: world.camera.position.toArray(),
+                aspect: world.camera.aspect,
+                fov: world.camera.fov
+            },
+            player: {
+                attached: player.root.parent === world.scene,
+                modelLoaded: Boolean(player.state.model),
+                modelMeshCount: countModelMeshes(player),
+                bones: [...player.state.modelBones.keys()],
+                hurtboxes: player.getHurtboxes().map((box) => ({
+                    zone: box.zone,
+                    radius: box.radius,
+                    center: box.center.toArray()
+                })),
+                position: player.position.toArray(),
+                health: player.health
+            },
+            opponent: {
+                attached: opponent.root.parent === world.scene,
+                modelLoaded: Boolean(opponent.state.model),
+                modelMeshCount: countModelMeshes(opponent),
+                bones: [...opponent.state.modelBones.keys()],
+                hurtboxes: opponent.getHurtboxes().map((box) => ({
+                    zone: box.zone,
+                    radius: box.radius,
+                    center: box.center.toArray()
+                })),
+                position: opponent.position.toArray(),
+                health: opponent.health
+            },
+            crowd: {
+                attached: world.crowd.parent === world.scene,
+                instancedMeshes: countInstancedMeshes(world.crowd),
+                audienceObjects: world.crowd.children.length
+            },
+            referee: {
+                attached: world.referee.parent === world.scene,
+                name: world.referee.name
+            },
+            hitboxDebugVisible: Boolean(hitboxDebugGroups?.player.group.visible),
+            match: {
+                phase: game.phase,
+                round: game.currentRound,
+                finished: game.finished
+            }
+        };
+    }
+
+    function testPunchContact(attackerName = "player") {
+        const attacker = attackerName === "opponent" ? opponent : player;
+        const target = attacker === player ? opponent : player;
+        const attackerPosition = attacker.position.clone();
+        const targetPosition = target.position.clone();
+        const originalPhase = game.phase;
+        const originalPaused = game.paused;
+        const originalFinished = game.finished;
+
+        try {
+            game.phase = "fight";
+            game.paused = false;
+            game.finished = false;
+
+            attacker.reset();
+            target.reset();
+
+            attacker.position.set(-1.1, 0.18, 0);
+            target.position.set(1.1, 0.18, 0);
+            attacker.setFacing(target.position.x - attacker.position.x);
+            target.setFacing(attacker.position.x - target.position.x);
+
+            if (!attacker.attack()) {
+                return { hit: false, reason: "attacker refused to start an attack" };
+            }
+
+            attacker.update(0.016);
+
+            const punch = attacker.getPunchHitbox();
+            const hurtboxes = target.getHurtboxes();
+            if (!hurtboxes.length) {
+                return { hit: false, reason: "target has no available hurtboxes" };
+            }
+
+            const selected = hurtboxes
+                .slice()
+                .sort((a, b) => {
+                    const distanceA = a.center.distanceToSquared(punch.end);
+                    const distanceB = b.center.distanceToSquared(punch.end);
+                    return distanceA - distanceB;
+                })[0];
+
+            // Place the selected physical hurtbox at the actual glove endpoint.
+            // This is an isolated QA fixture, not part of normal gameplay.
+            target.position.add(punch.end.clone().sub(selected.center));
+
+            const healthBefore = target.health;
+            const landed = resolvePunch(attacker, target, CONFIG.playerDamage);
+            const healthAfter = target.health;
+
+            return {
+                hit: landed && healthAfter < healthBefore,
+                landed,
+                zone: selected.zone,
+                damage: healthBefore - healthAfter,
+                punch: {
+                    start: punch.start.toArray(),
+                    end: punch.end.toArray(),
+                    radius: punch.radius
+                },
+                targetPosition: target.position.toArray()
+            };
+        } finally {
+            attacker.reset();
+            target.reset();
+            attacker.position.copy(attackerPosition);
+            target.position.copy(targetPosition);
+            game.phase = originalPhase;
+            game.paused = originalPaused;
+            game.finished = originalFinished;
+            updateHealthUI();
+        }
+    }
+
+    window.__SMASHERS_QA__ = {
+        snapshot,
+        setHitboxDebug,
+        testPunchContact
+    };
+}
+
 async function startGame() {
     try {
         await initializeWorld();
         startupPhase = "starting the renderer";
+
+        installQaBridge();
 
         if (!animate()) return;
 
