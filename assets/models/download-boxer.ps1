@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
-$SourceUrl = 'https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb'
+$SourceUrl = 'https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb'
 $TargetPath = Join-Path $PSScriptRoot 'casual-character.glb'
-$ExpectedGitBlobSha = 'eb29e2adb795972e1f475cd25a000975fe260aa9'
+$ExpectedGitBlobSha = 'f31ba8b389268d4df6005cc62d4d7011de728bce'
 
 Write-Host 'Downloading the Quaternius CC0 casual character rig...'
 Invoke-WebRequest -UseBasicParsing -Uri $SourceUrl -OutFile $TargetPath
