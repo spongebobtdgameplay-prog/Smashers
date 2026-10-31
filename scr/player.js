@@ -279,14 +279,18 @@ export function createFighter(THREE, options = {}) {
         state.activeActionName = name;
     }
 
-    function setupBoxerModel(model, animations) {
-        // Some Quaternius exports are Z-up. Apply their authored axis
-        // correction before measuring bounds so the fighter is Y-up.
+    function setupBoxerModel(sourceModel, animations) {
+        // Use an outer group for axis correction. Some GLB scene roots have
+        // fixed imported matrices; rotating a wrapper guarantees that the
+        // whole skinned mesh and skeleton are reoriented together.
+        const model = new THREE.Group();
+        model.name = `${name}BoxerModelRoot`;
         model.rotation.set(
             modelRotation[0] ?? 0,
             modelRotation[1] ?? 0,
             modelRotation[2] ?? 0
         );
+        model.add(sourceModel);
 
         // Match the Infinity Store loader: establish world matrices before
         // measuring the imported skinned rig or calculating its fit scale.
@@ -336,7 +340,7 @@ export function createFighter(THREE, options = {}) {
         ];
 
         for (const name of boneNames) {
-            const bone = model.getObjectByName(name);
+            const bone = sourceModel.getObjectByName(name);
             if (bone?.isBone) {
                 state.modelBones.set(name, bone);
                 state.baseBoneQuaternions.set(name, bone.quaternion.clone());
@@ -425,7 +429,7 @@ export function createFighter(THREE, options = {}) {
         }
 
         if (animations?.length) {
-            state.mixer = new THREE.AnimationMixer(model);
+            state.mixer = new THREE.AnimationMixer(sourceModel);
             const definitions = [
                 ["idle", /idle|breath/i],
                 ["walk", /walk|jog|run/i],
@@ -442,6 +446,8 @@ export function createFighter(THREE, options = {}) {
                 playModelAction("idle");
             }
         }
+
+        return model;
     }
 
     const modelSources = Array.isArray(modelUrls) && modelUrls.length
@@ -470,9 +476,9 @@ export function createFighter(THREE, options = {}) {
             for (const source of modelSources) {
                 try {
                     const gltf = await loader.loadAsync(source);
-                    const model = gltf.scene;
+                    const sourceModel = gltf.scene;
+                    const model = setupBoxerModel(sourceModel, gltf.animations || []);
 
-                    setupBoxerModel(model, gltf.animations || []);
                     state.model = model;
                     root.add(model);
 
