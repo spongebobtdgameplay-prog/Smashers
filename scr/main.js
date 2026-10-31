@@ -1,66 +1,86 @@
-
-import * as THREE from "../engine/three/three.module.js?v=20261030-build-004";
-import { createWorld } from "./world.js?v=20261030-build-004";
-import { createFighter } from "./player.js";
+import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-005";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/loaders/GLTFLoader.js";
+import { createWorld } from "./world.js?v=20261030-smashers-boxing-005";
+import { createFighter } from "./player.js?v=20261030-smashers-boxing-005";
 import { ServerPatcher } from "./v1-server.js";
-import { BUILD_LABEL } from "./version.js?v=20261030-build-004";
+import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-005";
 
 // ============================================
-// SMASHERS — MAIN APPLICATION
+// SMASHERS — FOUR-ROUND BOXING MATCH
 // ============================================
 
 const $ = (id) => document.getElementById(id);
 
 const canvas = $("smashers-canvas");
-const gameVersion = $("game-version");
-
-if (gameVersion) {
-    gameVersion.textContent = BUILD_LABEL;
-}
 const viewport = $("game-viewport");
+const gameVersion = $("game-version");
 const loadingScreen = $("loading-screen");
 const loadingProgress = $("loading-progress");
 const loadingStatus = $("loading-status");
-
 const pauseMenu = $("pause-menu");
 const resumeButton = $("resume-button");
+const resultMenu = $("result-menu");
+const resultTitle = $("result-title");
+const resultDetail = $("result-detail");
+const rematchButton = $("rematch-button");
+const refereeCount = $("referee-count");
 
 const playerHealthBar = $("player-health");
 const opponentHealthBar = $("opponent-health");
 const playerHealthValue = $("player-health-value");
 const opponentHealthValue = $("opponent-health-value");
-
 const fightTimer = $("fight-timer");
 const fightStatus = $("fight-status");
+const roundIndicator = $("round-indicator");
+const fightScore = $("fight-score");
 const gameMessage = $("game-message");
 
 if (!canvas || !viewport) {
     throw new Error("Smashers: Game canvas or viewport is missing.");
 }
 
+if (gameVersion) gameVersion.textContent = BUILD_LABEL;
+
 const CONFIG = Object.freeze({
-    matchDuration: 180,
+    rounds: 4,
+    roundDuration: 45,
+    breakDuration: 6,
+    knockdownCount: 10,
+    playerGetUpPresses: 3,
+    getUpHealth: 38,
     playerSpeed: 4.4,
     opponentSpeed: 2.35,
     playerDamage: 12,
     opponentDamage: 8,
     playerAttackRange: 2.05,
     opponentAttackRange: 1.9,
+    fighterRadius: 0.48,
+    fighterSeparation: 1.02,
     arenaBounds: {
         minX: -5.0,
         maxX: 5.0,
-        minZ: -2.65,
-        maxZ: 2.65
+        minZ: -2.58,
+        maxZ: 2.58
     }
 });
+
+const BOXER_MODEL_URL =
+    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb";
 
 const game = {
     paused: false,
     finished: false,
-    timeRemaining: CONFIG.matchDuration,
+    phase: "fight",
+    currentRound: 1,
+    timeRemaining: CONFIG.roundDuration,
+    breakRemaining: 0,
     keys: new Set(),
     elapsed: 0,
-    lastDisplayedSecond: -1
+    lastDisplayedSecond: -1,
+    roundDamage: { player: 0, opponent: 0 },
+    roundWins: { player: 0, opponent: 0 },
+    knockdowns: { player: 0, opponent: 0 },
+    knockdown: null
 };
 
 let world;
@@ -68,10 +88,6 @@ let player;
 let opponent;
 let messageTimeout = null;
 let startupPhase = "application startup";
-
-// ============================================
-// SERVER PATCHER
-// ============================================
 
 const serverPatcher = new ServerPatcher({
     onStatus(status) {
@@ -84,68 +100,83 @@ const serverPatcher = new ServerPatcher({
     }
 });
 
-// V1 is not deployed yet. Keep the registry initialized locally,
-// but do not make a network request during the offline prototype.
+// V1 is not deployed. Keep the registry local and offline.
 
-// ============================================
-// WORLD AND FIGHTERS
-// ============================================
+function setLoading(progress, status) {
+    if (loadingProgress) loadingProgress.style.width = `${progress}%`;
+    if (loadingStatus) loadingStatus.textContent = status;
+}
 
-function initializeWorld() {
+async function initializeWorld() {
     startupPhase = "initializing Three.js renderer";
-    loadingStatus.textContent = "INITIALIZING THREE.JS...";
-    loadingProgress.style.width = "20%";
+    setLoading(20, "INITIALIZING THREE.JS...");
 
     world = createWorld(THREE, canvas, viewport);
 
-    startupPhase = "building the arena and fighters";
-    loadingStatus.textContent = "BUILDING THE ARENA...";
-    loadingProgress.style.width = "50%";
+    startupPhase = "building the ring and fighters";
+    setLoading(48, "BUILDING THE BOXING ARENA...");
+
+    const loader = new GLTFLoader();
 
     player = createFighter(THREE, {
         name: "PLAYER",
         color: 0x29313d,
         gloveColor: 0xe52d42,
-        position: [-2.3, 0.18, 0]
+        shortsColor: 0xe52d42,
+        position: [-2.3, 0.18, 0],
+        loader,
+        modelUrl: BOXER_MODEL_URL
     });
 
     opponent = createFighter(THREE, {
         name: "RIVAL",
         color: 0x292b36,
         gloveColor: 0x315dff,
-        position: [2.3, 0.18, 0]
+        shortsColor: 0x315dff,
+        position: [2.3, 0.18, 0],
+        loader,
+        modelUrl: BOXER_MODEL_URL
     });
+
+    // The missing scene attachment was why the ring rendered without boxers.
+    world.scene.add(player.root);
+    world.scene.add(opponent.root);
 
     player.setFacing(1);
     opponent.setFacing(-1);
 
     const playerName = $("player-name");
     const opponentName = $("opponent-name");
-
     if (playerName) playerName.textContent = player.name;
-    if (opponentName) opponentName.textContent = opponent.name;
+    if (opponentName) opponentName.textContent = "RIVAL";
+
+    setLoading(66, "LOADING BOXER MODELS...");
+
+    const [playerModelLoaded, opponentModelLoaded] = await Promise.all([
+        player.ready,
+        opponent.ready
+    ]);
+
+    console.info("[SMASHERS] Boxer model status:", {
+        player: playerModelLoaded ? "Quaternius GLB" : "procedural fallback",
+        opponent: opponentModelLoaded ? "Quaternius GLB" : "procedural fallback"
+    });
 
     startupPhase = "preparing fighters and HUD";
-    loadingStatus.textContent = "PREPARING FIGHTERS...";
-    loadingProgress.style.width = "80%";
+    setLoading(88, "PREPARING THE REFEREE AND CROWD...");
 
     updateHealthUI();
-    updateTimerUI();
-
-    loadingStatus.textContent = "READY";
-    loadingProgress.style.width = "100%";
-
-    if (loadingScreen) {
-        loadingScreen.classList.add("hidden");
-    }
+    updateTimerUI(true);
+    updateScoreUI();
 
     game.elapsed = 0;
-    fightStatus.textContent = "FIGHT";
-}
+    game.phase = "fight";
+    game.currentRound = 1;
+    fightStatus.textContent = "ROUND 1";
+    setLoading(100, "READY");
 
-// ============================================
-// HUD
-// ============================================
+    if (loadingScreen) loadingScreen.classList.add("hidden");
+}
 
 function updateHealthUI() {
     if (!player || !opponent) return;
@@ -153,83 +184,243 @@ function updateHealthUI() {
     const playerHealth = Math.ceil(player.health);
     const opponentHealth = Math.ceil(opponent.health);
 
-    playerHealthBar.style.width = `${playerHealth}%`;
-    opponentHealthBar.style.width = `${opponentHealth}%`;
+    if (playerHealthBar) playerHealthBar.style.width = `${playerHealth}%`;
+    if (opponentHealthBar) opponentHealthBar.style.width = `${opponentHealth}%`;
+    if (playerHealthValue) playerHealthValue.textContent = playerHealth;
+    if (opponentHealthValue) opponentHealthValue.textContent = opponentHealth;
+}
 
-    playerHealthValue.textContent = playerHealth;
-    opponentHealthValue.textContent = opponentHealth;
+function updateScoreUI() {
+    if (roundIndicator) {
+        roundIndicator.textContent =
+            `ROUND ${Math.min(game.currentRound, CONFIG.rounds)} / ${CONFIG.rounds}`;
+    }
+
+    if (fightScore) {
+        fightScore.textContent =
+            `ROUNDS ${game.roundWins.player} — ${game.roundWins.opponent}`;
+    }
 }
 
 function updateTimerUI(force = false) {
-    const displayedSecond = Math.max(
-        0,
-        Math.ceil(game.timeRemaining)
-    );
-
-    if (!force && displayedSecond === game.lastDisplayedSecond) {
-        return;
-    }
+    const displayedSecond = Math.max(0, Math.ceil(game.timeRemaining));
+    if (!force && displayedSecond === game.lastDisplayedSecond) return;
 
     game.lastDisplayedSecond = displayedSecond;
-
     const minutes = Math.floor(displayedSecond / 60);
     const seconds = displayedSecond % 60;
 
-    fightTimer.textContent =
-        `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    if (fightTimer) {
+        fightTimer.textContent =
+            `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
 }
 
-function showMessage(message) {
+function showMessage(message, duration = 1500) {
     if (!gameMessage) return;
 
     gameMessage.textContent = message;
     gameMessage.classList.add("visible");
 
-    if (messageTimeout !== null) {
-        window.clearTimeout(messageTimeout);
-    }
+    if (messageTimeout !== null) window.clearTimeout(messageTimeout);
 
     messageTimeout = window.setTimeout(() => {
         gameMessage.classList.remove("visible");
         messageTimeout = null;
-    }, 1500);
+    }, duration);
 }
 
-// ============================================
-// DAMAGE AND MATCH RESULTS
-// ============================================
+function hideRefereeCount() {
+    if (refereeCount) refereeCount.hidden = true;
+    if (world) world.resetReferee();
+}
 
-function applyDamage(target, amount) {
-    if (game.finished || !target) return;
+function finishMatch(title, detail) {
+    if (game.finished) return;
 
-    const actualDamage = target.takeDamage(amount);
+    game.finished = true;
+    game.phase = "finished";
+    game.keys.clear();
+    hideRefereeCount();
 
-    updateHealthUI();
+    if (pauseMenu) pauseMenu.hidden = true;
+    if (resultTitle) resultTitle.textContent = title;
+    if (resultDetail) resultDetail.textContent = detail;
+    if (resultMenu) resultMenu.hidden = false;
 
-    if (actualDamage <= 0) {
-        return;
-    }
+    fightStatus.textContent = "FINAL";
+    showMessage(title, 2600);
+}
 
-    if (target.health <= 0) {
+function decisionResult() {
+    if (game.roundWins.player > game.roundWins.opponent) {
         finishMatch(
-            target === opponent ? "YOU WIN!" : "YOU LOSE!"
+            "YOU WIN — DECISION",
+            `Official decision after four rounds: ${game.roundWins.player} rounds to ${game.roundWins.opponent}.`
+        );
+    } else if (game.roundWins.player < game.roundWins.opponent) {
+        finishMatch(
+            "RIVAL WINS — DECISION",
+            `Official decision after four rounds: ${game.roundWins.opponent} rounds to ${game.roundWins.player}.`
+        );
+    } else {
+        finishMatch(
+            "DRAW",
+            `Four rounds complete. The judges scored it ${game.roundWins.player} rounds each.`
         );
     }
 }
 
-function finishMatch(result) {
-    if (game.finished) return;
+function startKnockdown(target) {
+    if (game.finished || game.phase === "knockdown" || target.isKnockedDown) return;
 
-    game.finished = true;
+    const isPlayer = target === player;
+    game.phase = "knockdown";
     game.keys.clear();
+    game.knockdowns[isPlayer ? "player" : "opponent"] += 1;
+    game.knockdown = {
+        target,
+        elapsed: 0,
+        count: 0,
+        countAccumulator: 0,
+        getUpPresses: 0,
+        isPlayer
+    };
 
-    fightStatus.textContent = result;
-    showMessage(result);
+    target.knockDown();
+    world.startRefereeCount(target.position);
+
+    if (refereeCount) {
+        refereeCount.hidden = false;
+        refereeCount.textContent = isPlayer
+            ? "REFEREE COUNT: 0 — PRESS SPACE 3 TIMES TO GET UP"
+            : "REFEREE COUNT: 0";
+    }
+
+    fightStatus.textContent = "KNOCKDOWN";
+    showMessage(isPlayer ? "DOWN!" : "RIVAL DOWN!", 1100);
+    updateHealthUI();
 }
 
-// ============================================
-// PLAYER INPUT AND MOVEMENT
-// ============================================
+function recoverFromKnockdown() {
+    const knockdown = game.knockdown;
+    if (!knockdown) return;
+
+    const target = knockdown.target;
+    target.recover(CONFIG.getUpHealth);
+
+    game.knockdown = null;
+    game.phase = "fight";
+    game.keys.clear();
+    hideRefereeCount();
+    updateHealthUI();
+
+    fightStatus.textContent = `ROUND ${game.currentRound}`;
+    showMessage(target === player ? "BACK ON YOUR FEET!" : "RIVAL GETS UP!", 1400);
+}
+
+function updateKnockdown(delta) {
+    const knockdown = game.knockdown;
+    if (!knockdown) return;
+
+    knockdown.elapsed += delta;
+    knockdown.countAccumulator += delta;
+
+    while (knockdown.countAccumulator >= 1 && knockdown.count < CONFIG.knockdownCount) {
+        knockdown.countAccumulator -= 1;
+        knockdown.count += 1;
+        world.updateRefereeCount(knockdown.count);
+
+        if (refereeCount) {
+            refereeCount.textContent = knockdown.isPlayer
+                ? `REFEREE COUNT: ${knockdown.count} — SPACE ${knockdown.getUpPresses}/${CONFIG.playerGetUpPresses}`
+                : `REFEREE COUNT: ${knockdown.count}`;
+        }
+
+        if (
+            !knockdown.isPlayer &&
+            knockdown.count >= 6 &&
+            game.knockdowns.opponent < 3
+        ) {
+            recoverFromKnockdown();
+            return;
+        }
+    }
+
+    if (
+        knockdown.isPlayer &&
+        knockdown.getUpPresses >= CONFIG.playerGetUpPresses &&
+        knockdown.count < CONFIG.knockdownCount
+    ) {
+        recoverFromKnockdown();
+        return;
+    }
+
+    if (knockdown.count >= CONFIG.knockdownCount) {
+        finishMatch(
+            knockdown.isPlayer ? "RIVAL WINS — TKO" : "YOU WIN — TKO",
+            `The referee completed the ten-count. Knockdowns this match: you ${game.knockdowns.player}, rival ${game.knockdowns.opponent}.`
+        );
+    }
+}
+
+function applyDamage(target, amount) {
+    if (game.finished || game.phase !== "fight" || !target || target.isKnockedDown) return;
+
+    const actualDamage = target.takeDamage(amount);
+    if (actualDamage <= 0) return;
+
+    if (target === opponent) {
+        game.roundDamage.player += actualDamage;
+    } else {
+        game.roundDamage.opponent += actualDamage;
+    }
+
+    updateHealthUI();
+
+    if (target.health <= 0) {
+        startKnockdown(target);
+    }
+}
+
+function clampFighterToRing(fighter) {
+    const bounds = CONFIG.arenaBounds;
+    const radius = CONFIG.fighterRadius;
+
+    fighter.position.x = THREE.MathUtils.clamp(
+        fighter.position.x,
+        bounds.minX + radius,
+        bounds.maxX - radius
+    );
+
+    fighter.position.z = THREE.MathUtils.clamp(
+        fighter.position.z,
+        bounds.minZ + radius,
+        bounds.maxZ - radius
+    );
+}
+
+function resolveFighterCollision(first, second) {
+    const dx = second.position.x - first.position.x;
+    const dz = second.position.z - first.position.z;
+    const distance = Math.hypot(dx, dz);
+    const minimum = CONFIG.fighterSeparation;
+
+    if (distance >= minimum) return;
+
+    const safeDistance = Math.max(distance, 0.0001);
+    const normalX = distance > 0.0001 ? dx / safeDistance : 1;
+    const normalZ = distance > 0.0001 ? dz / safeDistance : 0;
+    const overlap = (minimum - distance) * 0.5;
+
+    first.position.x -= normalX * overlap;
+    first.position.z -= normalZ * overlap;
+    second.position.x += normalX * overlap;
+    second.position.z += normalZ * overlap;
+
+    clampFighterToRing(first);
+    clampFighterToRing(second);
+}
 
 function updatePlayer(delta) {
     const movementX =
@@ -240,56 +431,19 @@ function updatePlayer(delta) {
         Number(game.keys.has("KeyS")) -
         Number(game.keys.has("KeyW"));
 
-    player.update(delta);
-
     player.setBlocking(game.keys.has("KeyK"));
 
-    const speed = CONFIG.playerSpeed *
-        (player.isDodging ? 2.4 : 1);
+    const speed = CONFIG.playerSpeed * (player.isDodging ? 2.4 : 1);
+    player.move(movementX, movementZ, delta, speed);
+    clampFighterToRing(player);
 
-    player.move(
-        movementX,
-        movementZ,
-        delta,
-        speed
-    );
-
-    const bounds = CONFIG.arenaBounds;
-
-    player.position.x = THREE.MathUtils.clamp(
-        player.position.x,
-        bounds.minX,
-        bounds.maxX
-    );
-
-    player.position.z = THREE.MathUtils.clamp(
-        player.position.z,
-        bounds.minZ,
-        bounds.maxZ
-    );
-
-    player.setFacing(
-        opponent.position.x - player.position.x
-    );
+    player.setFacing(opponent.position.x - player.position.x);
 }
 
-// ============================================
-// OPPONENT AI
-// ============================================
-
 function updateOpponent(delta) {
-    opponent.update(delta);
-
-    const differenceX =
-        player.position.x - opponent.position.x;
-
-    const differenceZ =
-        player.position.z - opponent.position.z;
-
-    const distance = Math.hypot(
-        differenceX,
-        differenceZ
-    );
+    const differenceX = player.position.x - opponent.position.x;
+    const differenceZ = player.position.z - opponent.position.z;
+    const distance = Math.hypot(differenceX, differenceZ);
 
     opponent.setFacing(differenceX);
 
@@ -302,101 +456,139 @@ function updateOpponent(delta) {
         );
     } else {
         opponent.move(0, 0, delta, CONFIG.opponentSpeed);
-
-        // The fighter's internal cooldown ensures
-        // only one attack is triggered per attack cycle.
         if (opponent.attack()) {
             applyDamage(player, CONFIG.opponentDamage);
         }
     }
 
-    const bounds = CONFIG.arenaBounds;
-
-    opponent.position.x = THREE.MathUtils.clamp(
-        opponent.position.x,
-        bounds.minX,
-        bounds.maxX
-    );
-
-    opponent.position.z = THREE.MathUtils.clamp(
-        opponent.position.z,
-        bounds.minZ,
-        bounds.maxZ
-    );
+    clampFighterToRing(opponent);
 }
 
-// ============================================
-// PLAYER COMBAT
-// ============================================
-
 function playerAttack() {
-    if (game.paused || game.finished) return;
-
+    if (game.paused || game.finished || game.phase !== "fight") return;
     if (!player.attack()) return;
 
-    const distanceX = Math.abs(
-        opponent.position.x - player.position.x
-    );
-
-    const distanceZ = Math.abs(
+    const distance = Math.hypot(
+        opponent.position.x - player.position.x,
         opponent.position.z - player.position.z
     );
 
-    const inRange =
-        Math.hypot(distanceX, distanceZ) <=
-        CONFIG.playerAttackRange;
-
-    if (inRange) {
+    if (distance <= CONFIG.playerAttackRange) {
         applyDamage(opponent, CONFIG.playerDamage);
     }
 }
 
-function playerDodge() {
+function playerDodgeOrGetUp() {
     if (game.paused || game.finished) return;
 
-    player.dodge();
+    if (game.phase === "knockdown") {
+        if (game.knockdown?.isPlayer) {
+            game.knockdown.getUpPresses += 1;
+
+            if (refereeCount) {
+                refereeCount.textContent =
+                    `REFEREE COUNT: ${game.knockdown.count} — SPACE ${game.knockdown.getUpPresses}/${CONFIG.playerGetUpPresses}`;
+            }
+        }
+        return;
+    }
+
+    if (game.phase === "fight") player.dodge();
 }
 
-// ============================================
-// MATCH TIMER
-// ============================================
+function awardRound() {
+    if (game.roundDamage.player > game.roundDamage.opponent) {
+        game.roundWins.player += 1;
+        showMessage("ROUND TO YOU!", 1500);
+    } else if (game.roundDamage.player < game.roundDamage.opponent) {
+        game.roundWins.opponent += 1;
+        showMessage("ROUND TO THE RIVAL!", 1500);
+    } else {
+        showMessage("EVEN ROUND!", 1500);
+    }
 
-function updateMatchTimer(delta) {
+    updateScoreUI();
+}
+
+function beginNextRound() {
+    game.currentRound += 1;
+
+    if (game.currentRound > CONFIG.rounds) {
+        decisionResult();
+        return;
+    }
+
+    player.standUp();
+    opponent.standUp();
+
+    player.position.set(-2.3, 0.18, 0);
+    opponent.position.set(2.3, 0.18, 0);
+    player.setFacing(1);
+    opponent.setFacing(-1);
+
+    game.roundDamage.player = 0;
+    game.roundDamage.opponent = 0;
+    game.timeRemaining = CONFIG.roundDuration;
+    game.breakRemaining = 0;
+    game.phase = "fight";
+    game.lastDisplayedSecond = -1;
+
+    updateScoreUI();
+    updateTimerUI(true);
+    fightStatus.textContent = `ROUND ${game.currentRound}`;
+    showMessage(`ROUND ${game.currentRound} — FIGHT!`, 1800);
+}
+
+function endRound() {
+    if (game.phase !== "fight" || game.finished) return;
+
+    awardRound();
+    game.phase = "break";
+    game.breakRemaining = CONFIG.breakDuration;
+    game.timeRemaining = CONFIG.breakDuration;
+    game.lastDisplayedSecond = -1;
+    fightStatus.textContent = "ROUND BREAK";
+    updateTimerUI(true);
+}
+
+function updateMatch(delta) {
     if (game.paused || game.finished) return;
 
-    game.timeRemaining = Math.max(
-        0,
-        game.timeRemaining - delta
-    );
+    player.update(delta);
+    opponent.update(delta);
 
+    if (game.phase === "knockdown") {
+        updateKnockdown(delta);
+        return;
+    }
+
+    if (game.phase === "break") {
+        game.breakRemaining = Math.max(0, game.breakRemaining - delta);
+        game.timeRemaining = game.breakRemaining;
+        updateTimerUI();
+
+        if (game.breakRemaining <= 0) beginNextRound();
+        return;
+    }
+
+    updatePlayer(delta);
+    updateOpponent(delta);
+    resolveFighterCollision(player, opponent);
+
+    game.timeRemaining = Math.max(0, game.timeRemaining - delta);
     updateTimerUI();
 
-    if (game.timeRemaining <= 0) {
-        if (player.health > opponent.health) {
-            finishMatch("YOU WIN!");
-        } else if (player.health < opponent.health) {
-            finishMatch("YOU LOSE!");
-        } else {
-            finishMatch("DRAW!");
-        }
-    }
+    if (game.timeRemaining <= 0) endRound();
 }
 
-// ============================================
-// PAUSE SYSTEM
-// ============================================
-
 function setPaused(paused) {
-    if (game.finished) return;
+    if (game.finished || game.phase !== "fight") return;
 
     game.paused = paused;
     game.keys.clear();
 
-    if (pauseMenu) {
-        pauseMenu.hidden = !paused;
-    }
-
-    fightStatus.textContent = paused ? "PAUSED" : "FIGHT";
+    if (pauseMenu) pauseMenu.hidden = !paused;
+    fightStatus.textContent = paused ? "PAUSED" : `ROUND ${game.currentRound}`;
 }
 
 function togglePause() {
@@ -404,57 +596,43 @@ function togglePause() {
 }
 
 if (resumeButton) {
-    resumeButton.addEventListener("click", () => {
-        setPaused(false);
-    });
+    resumeButton.addEventListener("click", () => setPaused(false));
 }
 
-// ============================================
-// KEYBOARD
-// ============================================
+if (rematchButton) {
+    rematchButton.addEventListener("click", () => window.location.reload());
+}
 
 const CONTROL_KEYS = new Set([
-    "KeyW",
-    "KeyA",
-    "KeyS",
-    "KeyD",
-    "KeyJ",
-    "KeyK",
-    "Space",
-    "Escape"
+    "KeyW", "KeyA", "KeyS", "KeyD",
+    "KeyJ", "KeyK", "Space", "Escape"
 ]);
 
 window.addEventListener("keydown", (event) => {
-    if (CONTROL_KEYS.has(event.code)) {
-        event.preventDefault();
-    }
+    if (CONTROL_KEYS.has(event.code)) event.preventDefault();
 
     if (
         event.code === "Escape" &&
         !event.repeat &&
-        !game.finished
+        !game.finished &&
+        game.phase === "fight"
     ) {
         togglePause();
         return;
     }
 
-    if (
-        event.repeat ||
-        game.paused ||
-        game.finished
-    ) {
+    if (event.repeat || game.paused || game.finished) return;
+
+    if (event.code === "Space") {
+        playerDodgeOrGetUp();
         return;
     }
 
+    if (game.phase !== "fight") return;
+
     game.keys.add(event.code);
 
-    if (event.code === "KeyJ") {
-        playerAttack();
-    }
-
-    if (event.code === "Space") {
-        playerDodge();
-    }
+    if (event.code === "KeyJ") playerAttack();
 });
 
 window.addEventListener("keyup", (event) => {
@@ -463,8 +641,7 @@ window.addEventListener("keyup", (event) => {
 
 window.addEventListener("blur", () => {
     game.keys.clear();
-
-    if (!game.paused && !game.finished) {
+    if (!game.paused && !game.finished && game.phase === "fight") {
         setPaused(true);
     }
 });
@@ -473,43 +650,28 @@ document.addEventListener("visibilitychange", () => {
     if (
         document.hidden &&
         !game.paused &&
-        !game.finished
+        !game.finished &&
+        game.phase === "fight"
     ) {
         setPaused(true);
     }
 });
 
-// ============================================
-// MAIN GAME UPDATE
-// ============================================
-
-function update(delta) {
-    if (game.paused || game.finished) return;
-
-    updatePlayer(delta);
-    updateOpponent(delta);
-    updateMatchTimer(delta);
-}
-
-// ============================================
-// RENDER LOOP
-// ============================================
-
 function animate() {
     try {
-        const delta = Math.min(
-            world ? world.clock.getDelta() : 0,
-            0.05
-        );
-
+        const delta = Math.min(world ? world.clock.getDelta() : 0, 0.05);
         game.elapsed += delta;
 
         if (world) {
-            if (!game.paused && !game.finished) {
-                update(delta);
-            }
+            if (!game.paused && !game.finished) updateMatch(delta);
 
-            world.update(delta, game.elapsed);
+            world.update(
+                delta,
+                game.elapsed,
+                player?.position,
+                opponent?.position
+            );
+
             world.renderer.render(world.scene, world.camera);
         }
     } catch (error) {
@@ -521,56 +683,30 @@ function animate() {
     return true;
 }
 
-// ============================================
-// RESIZE
-// ============================================
-
 window.addEventListener("resize", () => {
-    if (world) {
-        world.resize();
-    }
+    if (world) world.resize();
 });
 
-// ============================================
-// START
-// ============================================
-
 function showEngineFailure(error, phase = startupPhase) {
-    const detail = error instanceof Error
-        ? error.message
-        : String(error);
+    const detail = error instanceof Error ? error.message : String(error);
 
-    console.error(
-        `SMASHERS INITIALIZATION FAILED during ${phase}:`,
-        error
-    );
+    console.error(`SMASHERS INITIALIZATION FAILED during ${phase}:`, error);
 
-    if (loadingScreen) {
-        loadingScreen.classList.remove("hidden");
-    }
-
+    if (loadingScreen) loadingScreen.classList.remove("hidden");
     if (loadingStatus) {
         loadingStatus.textContent =
             `ENGINE INITIALIZATION FAILED (${phase}): ${detail}`;
     }
-
-    if (fightStatus) {
-        fightStatus.textContent = "ERROR";
-    }
-
-    if (loadingProgress) {
-        loadingProgress.style.width = "0%";
-    }
+    if (fightStatus) fightStatus.textContent = "ERROR";
+    if (loadingProgress) loadingProgress.style.width = "0%";
 }
 
-function startGame() {
+async function startGame() {
     try {
-        initializeWorld();
+        await initializeWorld();
         startupPhase = "starting the renderer";
 
-        if (!animate()) {
-            return;
-        }
+        if (!animate()) return;
 
         console.info(
             `SMASHERS ${BUILD_LABEL} READY — THREE.JS REVISION ${THREE.REVISION}`
