@@ -1,5 +1,5 @@
-import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-005";
-import { createWorld } from "./world.js?v=20261030-smashers-boxing-005";
+import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-006";
+import { createWorld } from "./world.js?v=20261030-smashers-boxing-006";
 import { createFighter } from "./player.js?v=20261030-smashers-boxing-006";
 import {
     clampFighterPosition,
@@ -7,7 +7,7 @@ import {
     punchHitsHurtboxes
 } from "./fight-physics.js?v=20261030-smashers-boxing-006";
 import { ServerPatcher } from "./v1-server.js";
-import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-005";
+import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-006";
 
 // ============================================
 // SMASHERS — FOUR-ROUND BOXING MATCH
