@@ -278,6 +278,9 @@ export function createFighter(THREE, options = {}) {
     }
 
     function setupBoxerModel(model, animations) {
+        // Match the Infinity Store loader: establish world matrices before
+        // measuring the imported skinned rig or calculating its fit scale.
+        model.updateMatrixWorld(true);
         const bounds = new THREE.Box3().setFromObject(model);
         const size = bounds.getSize(new THREE.Vector3());
         const height = Math.max(size.y, 0.001);
@@ -314,7 +317,7 @@ export function createFighter(THREE, options = {}) {
             }
         });
 
-        // Exact bone names from the Quaternius casual-character.glb rig.
+        // Exact bone names from the Quaternius worker.glb rig.
         const boneNames = [
             "Root", "Body", "Hips", "Abdomen", "Torso", "Chest", "Neck", "Head",
             "ShoulderL", "UpperArmL", "LowerArmL", "WristL",
