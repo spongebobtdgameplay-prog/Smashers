@@ -129,9 +129,10 @@ try {
     assert.ok(Math.abs(Math.abs(model.localRotation?.[0] || 0) - Math.PI / 2) < 0.01, `${label} should apply the Z-up to Y-up correction`);
     assert.ok(model.sourceSize?.[1] > model.sourceSize?.[0] * 2, `${label} fitted source should be Y-up`);
     assert.ok(model.appliedFitScale > 0.5 && model.appliedFitScale < 1.5, `${label} should use a sane model fit scale`);
-    assert.ok(model.bounds.size[0] < 2.0, `${label} model should not be too wide`);
-    assert.ok(model.bounds.size[2] < 2.0, `${label} model should not be too deep`);
-    assert.ok(model.bounds.min[1] > 0.0, `${label} feet should not be below the ring surface`);
+    assert.ok(model.scaledSourceSize?.[0] < 1.2, `${label} fitted body should not be too wide`);
+    assert.ok(model.scaledSourceSize?.[1] > 1.7 && model.scaledSourceSize?.[1] < 1.9, `${label} fitted body should be human height`);
+    assert.ok(model.scaledSourceSize?.[2] < 1.2, `${label} fitted body should not be too deep`);
+    assert.ok(Math.abs(model.expectedBounds?.min?.[1] ?? -1) < 1e-5, `${label} fitted feet should align with the ring floor`);
   }
   assert.ok(snapshot.player.modelBoneNames.length > 0, "player GLB should contain a real skeleton");
   assert.ok(snapshot.opponent.modelBoneNames.length > 0, "opponent GLB should contain a real skeleton");
