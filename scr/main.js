@@ -1169,6 +1169,7 @@ function installQaBridge() {
                 let fist = null;
                 let maxForwardReach = -Infinity;
                 let minimumContactGap = Infinity;
+                let maxWorldExtension = 0;
                 let peakFist = null;
 
                 if (started) {
@@ -1181,6 +1182,10 @@ function installQaBridge() {
                         const reach = fist.end.clone()
                             .sub(attacker.position)
                             .dot(forward);
+                        maxWorldExtension = Math.max(
+                            maxWorldExtension,
+                            attacker.state.wristExtensionWorld ?? 0
+                        );
 
                         if (reach > maxForwardReach) {
                             maxForwardReach = reach;
@@ -1237,6 +1242,8 @@ function installQaBridge() {
                     damage,
                     maxGloveForwardReach: maxForwardReach,
                     minimumContactGap,
+                    maxWorldExtension,
+                    animationActions: [...attacker.state.actions.keys()],
                     finalGloveForwardReach: gloveOffset.dot(forward),
                     peakFist,
                     glove: fist
