@@ -373,6 +373,19 @@ export function createFighter(THREE, options = {}) {
             ? [modelUrl]
             : [];
 
+    const poseEuler = new THREE.Euler();
+    const poseQuaternion = new THREE.Quaternion();
+
+    function applyModelBonePose(name, x = 0, y = 0, z = 0) {
+        const bone = state.modelBones.get(name);
+        const base = state.baseBoneQuaternions.get(name);
+        if (!bone || !base) return;
+
+        poseEuler.set(x, y, z, "XYZ");
+        poseQuaternion.setFromEuler(poseEuler);
+        bone.quaternion.copy(base).multiply(poseQuaternion);
+    }
+
     const ready = loader && modelSources.length
         ? (async () => {
             let lastError = null;
@@ -567,18 +580,19 @@ export function createFighter(THREE, options = {}) {
             }
 
             if (state.model && !state.actions.has("punch")) {
-                const upper = state.modelBones.get("UpperArm.R");
-                const base = state.baseBoneQuaternions.get("UpperArm.R");
-                if (upper && base) {
-                    const punchAmount = state.attackTimer > 0
-                        ? Math.sin((1 - state.attackTimer / state.attackDuration) * Math.PI) * 0.82
-                        : 0;
-                    const guardAmount = state.blocking ? 0.34 : 0;
-                    const pose = new THREE.Quaternion().setFromEuler(
-                        new THREE.Euler(-punchAmount - guardAmount, 0, -guardAmount)
-                    );
-                    upper.quaternion.copy(base).multiply(pose);
-                }
+                const swing = state.walking ? Math.sin(state.walkPhase) : 0;
+                const punchAmount = state.attackTimer > 0
+                    ? Math.sin((1 - state.attackTimer / state.attackDuration) * Math.PI) * 0.92
+                    : 0;
+                const guardAmount = state.blocking ? 0.30 : 0;
+                const stepAmount = state.walking ? swing * 0.24 : 0;
+
+                // The Infinity Store rig uses these same Quaternius bone names.
+                // Keep both hands in a guard stance and drive the right jab locally.
+                applyModelBonePose("UpperArm.L", -stepAmount - guardAmount, 0, 1.10 + guardAmount);
+                applyModelBonePose("UpperArm.R", stepAmount - punchAmount - guardAmount, 0, -1.10 - guardAmount);
+                applyModelBonePose("LowerArm.L", -0.17 + Math.max(0, swing) * 0.12, 0, 0);
+                applyModelBonePose("LowerArm.R", -0.17 + Math.max(0, -swing) * 0.12, 0, 0);
             }
 
             const downTarget = state.knockedDown ? -Math.PI * 0.46 : 0;
