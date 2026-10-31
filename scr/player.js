@@ -562,6 +562,13 @@ export function createFighter(THREE, options = {}) {
             return true;
         },
 
+        getForwardVector() {
+            return new THREE.Vector3(0, 0, 1)
+                .applyQuaternion(root.quaternion)
+                .setY(0)
+                .normalize();
+        },
+
         move(dx, dz, delta, speed) {
             if (state.knockedDown) return;
 
