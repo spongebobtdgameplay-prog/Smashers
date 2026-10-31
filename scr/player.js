@@ -5,7 +5,9 @@ export function createFighter(THREE, options = {}) {
         color = 0x29313d,
         gloveColor = 0xe52d42,
         position = [0, 0.18, 0],
-        maxHealth = 100
+        maxHealth = 100,
+        loader = null,
+        modelUrl = ""
     } = options;
 
     const root = new THREE.Group();
@@ -51,7 +53,14 @@ export function createFighter(THREE, options = {}) {
 
         blocking: false,
         walking: false,
-        walkPhase: 0
+        walkPhase: 0,
+        knockedDown: false,
+        model: null,
+        mixer: null,
+        actions: new Map(),
+        activeAction: null,
+        modelBones: new Map(),
+        baseBoneQuaternions: new Map()
     };
 
     function addMesh(geometry, material, parent, x, y, z) {
@@ -238,6 +247,150 @@ export function createFighter(THREE, options = {}) {
     const rightLeg = createLeg(1);
 
     // ========================================
+    // ONLINE BOXER MODEL
+    // ========================================
+
+    function playModelAction(name, loop = true) {
+        const next = state.actions.get(name);
+        if (!next || state.activeAction === next) return;
+
+        next.reset();
+        next.enabled = true;
+        next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+        next.clampWhenFinished = !loop;
+        next.fadeIn(0.12).play();
+
+        if (state.activeAction && state.activeAction !== next) {
+            state.activeAction.fadeOut(0.12);
+        }
+
+        state.activeAction = next;
+    }
+
+    function setupBoxerModel(model, animations) {
+        const bounds = new THREE.Box3().setFromObject(model);
+        const size = bounds.getSize(new THREE.Vector3());
+        const height = Math.max(size.y, 0.001);
+        model.scale.setScalar(2.15 / height);
+        model.updateMatrixWorld(true);
+
+        const scaledBounds = new THREE.Box3().setFromObject(model);
+        const center = scaledBounds.getCenter(new THREE.Vector3());
+        model.position.x -= center.x;
+        model.position.z -= center.z;
+        model.position.y -= scaledBounds.min.y;
+
+        model.traverse((object) => {
+            if (!object.isMesh) return;
+            object.castShadow = true;
+            object.receiveShadow = false;
+            const materials = Array.isArray(object.material)
+                ? object.material
+                : [object.material];
+
+            for (const material of materials) {
+                if (!material) continue;
+                if ("roughness" in material) {
+                    material.roughness = Math.max(material.roughness ?? 0.55, 0.58);
+                }
+                material.needsUpdate = true;
+            }
+        });
+
+        const boneNames = [
+            "Hips", "UpperArm.L", "LowerArm.L", "Wrist.L",
+            "UpperArm.R", "LowerArm.R", "Wrist.R"
+        ];
+
+        for (const name of boneNames) {
+            const bone = model.getObjectByName(name);
+            if (bone?.isBone) {
+                state.modelBones.set(name, bone);
+                state.baseBoneQuaternions.set(name, bone.quaternion.clone());
+            }
+        }
+
+        // Boxing trunks are attached to the pelvis so they follow the rig.
+        const hips = state.modelBones.get("Hips");
+        if (hips) {
+            const trunks = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.27, 0.34, 0.34, 12),
+                new THREE.MeshStandardMaterial({
+                    color: options.shortsColor ?? gloveColor,
+                    roughness: 0.72
+                })
+            );
+            trunks.name = "SmashersBoxingTrunks";
+            trunks.position.y = -0.13;
+            trunks.castShadow = true;
+            hips.add(trunks);
+        }
+
+        // Add boxing gloves to the model's wrist bones.
+        for (const side of ["L", "R"]) {
+            const wrist = state.modelBones.get(`Wrist.${side}`);
+            if (!wrist) continue;
+
+            const glove = new THREE.Mesh(
+                new THREE.SphereGeometry(0.155, 12, 10),
+                new THREE.MeshStandardMaterial({
+                    color: gloveColor,
+                    roughness: 0.48,
+                    metalness: 0.03
+                })
+            );
+            glove.name = `SmashersBoxingGlove.${side}`;
+            glove.scale.set(1.08, 0.94, 1.28);
+            glove.position.set(0, -0.015, 0.055);
+            glove.castShadow = true;
+            wrist.add(glove);
+        }
+
+        if (animations?.length) {
+            state.mixer = new THREE.AnimationMixer(model);
+            const definitions = [
+                ["idle", /idle|breath/i],
+                ["walk", /walk|jog|run/i],
+                ["punch", /punch|attack|jab|hook/i],
+                ["fall", /death|knock.?down|fall/i]
+            ];
+
+            for (const [name, pattern] of definitions) {
+                const clip = animations.find((entry) => pattern.test(entry.name));
+                if (clip) state.actions.set(name, state.mixer.clipAction(clip));
+            }
+
+            if (state.actions.has("idle")) {
+                playModelAction("idle");
+            }
+        }
+    }
+
+    const ready = loader && modelUrl
+        ? loader.loadAsync(modelUrl).then((gltf) => {
+            const model = gltf.scene;
+            setupBoxerModel(model, gltf.animations || []);
+            state.model = model;
+            root.add(model);
+
+            // Keep the procedural fighter as a fallback if loading fails.
+            root.traverse((object) => {
+                if (object.isMesh && !object.name.startsWith("Smashers")) {
+                    // Hide only the original primitive fighter meshes.
+                    if (!state.model || !state.model.getObjectById(object.id)) {
+                        object.visible = false;
+                    }
+                }
+            });
+
+            return true;
+        }).catch((error) => {
+            console.warn(`[SMASHERS] Online boxer model unavailable for ${name}; using built-in fallback.`, error);
+            return false;
+        })
+        : Promise.resolve(false);
+
+    // ========================================
     // FIGHTER API
     // ========================================
 
@@ -246,6 +399,7 @@ export function createFighter(THREE, options = {}) {
         root,
         torso,
         state,
+        ready,
 
         leftArm,
         rightArm,
@@ -268,6 +422,10 @@ export function createFighter(THREE, options = {}) {
             return state.blocking;
         },
 
+        get isKnockedDown() {
+            return state.knockedDown;
+        },
+
         get isDodging() {
             return state.dodgeTimer > 0;
         },
@@ -277,6 +435,8 @@ export function createFighter(THREE, options = {}) {
         },
 
         move(dx, dz, delta, speed) {
+            if (state.knockedDown) return;
+
             const length = Math.hypot(dx, dz);
 
             state.walking = length > 0.001;
@@ -304,6 +464,7 @@ export function createFighter(THREE, options = {}) {
 
         attack() {
             if (
+                state.knockedDown ||
                 state.attackCooldown > 0 ||
                 state.health <= 0
             ) {
@@ -312,6 +473,7 @@ export function createFighter(THREE, options = {}) {
 
             state.attackCooldown = 0.46;
             state.attackTimer = state.attackDuration;
+            if (state.actions.has("punch")) playModelAction("punch", false);
 
             return true;
         },
@@ -336,6 +498,7 @@ export function createFighter(THREE, options = {}) {
 
         takeDamage(amount) {
             if (
+                state.knockedDown ||
                 !Number.isFinite(amount) ||
                 amount <= 0 ||
                 state.health <= 0
@@ -364,6 +527,47 @@ export function createFighter(THREE, options = {}) {
         },
 
         update(delta) {
+            if (state.mixer) {
+                if (state.knockedDown && state.actions.has("fall")) {
+                    playModelAction("fall", false);
+                } else if (!state.knockedDown && state.attackTimer > 0 && state.actions.has("punch")) {
+                    playModelAction("punch", false);
+                } else if (!state.knockedDown && state.actions.has("walk") && state.walking) {
+                    playModelAction("walk");
+                } else if (!state.knockedDown && state.actions.has("idle")) {
+                    playModelAction("idle");
+                }
+
+                state.mixer.update(delta);
+            }
+
+            if (state.model && !state.actions.has("punch")) {
+                const upper = state.modelBones.get("UpperArm.R");
+                const base = state.baseBoneQuaternions.get("UpperArm.R");
+                if (upper && base) {
+                    const punchAmount = state.attackTimer > 0
+                        ? Math.sin((1 - state.attackTimer / state.attackDuration) * Math.PI) * 0.82
+                        : 0;
+                    const guardAmount = state.blocking ? 0.34 : 0;
+                    const pose = new THREE.Quaternion().setFromEuler(
+                        new THREE.Euler(-punchAmount - guardAmount, 0, -guardAmount)
+                    );
+                    upper.quaternion.copy(base).multiply(pose);
+                }
+            }
+
+            const downTarget = state.knockedDown ? -Math.PI * 0.46 : 0;
+            root.rotation.z = THREE.MathUtils.lerp(
+                root.rotation.z,
+                downTarget,
+                1 - Math.exp(-delta * 8)
+            );
+            root.position.y = THREE.MathUtils.lerp(
+                root.position.y,
+                state.knockedDown ? 0.08 : 0.18,
+                1 - Math.exp(-delta * 8)
+            );
+
             state.attackCooldown = Math.max(
                 0,
                 state.attackCooldown - delta
@@ -386,7 +590,7 @@ export function createFighter(THREE, options = {}) {
 
             // Walking animation
 
-            const swing = state.walking
+            const swing = state.walking && !state.knockedDown
                 ? Math.sin(state.walkPhase) * 0.42
                 : 0;
 
@@ -444,6 +648,49 @@ export function createFighter(THREE, options = {}) {
             if (!state.blocking && state.attackTimer <= 0) {
                 leftArm.pivot.rotation.set(0, 0, 0);
                 rightArm.pivot.rotation.set(0, 0, 0);
+            }
+        },
+
+        knockDown() {
+            if (state.knockedDown) return;
+            state.knockedDown = true;
+            state.walking = false;
+            state.blocking = false;
+            state.attackTimer = 0;
+            if (state.actions.has("fall")) playModelAction("fall", false);
+        },
+
+        standUp() {
+            state.knockedDown = false;
+            root.rotation.z = 0;
+            root.position.y = 0.18;
+            if (state.actions.has("idle")) playModelAction("idle");
+        },
+
+        recover(health = 40) {
+            state.health = THREE.MathUtils.clamp(health, 1, state.maxHealth);
+            this.standUp();
+        },
+
+        reset() {
+            state.health = state.maxHealth;
+            state.attackCooldown = 0;
+            state.attackTimer = 0;
+            state.dodgeCooldown = 0;
+            state.dodgeTimer = 0;
+            state.blocking = false;
+            state.walking = false;
+            state.walkPhase = 0;
+            state.knockedDown = false;
+            root.position.set(
+                position[0] ?? 0,
+                position[1] ?? 0.18,
+                position[2] ?? 0
+            );
+            root.rotation.set(0, 0, 0);
+            if (state.model) {
+                state.model.visible = true;
+                if (state.actions.has("idle")) playModelAction("idle");
             }
         },
 
