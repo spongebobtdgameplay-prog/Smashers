@@ -412,8 +412,251 @@ export function createWorld(THREE, canvas, viewport) {
     scene.add(arena);
 
     // ========================================
+    // STADIUM CROWD
+    // ========================================
+
+    const crowd = new THREE.Group();
+    crowd.name = "SmashersAudience";
+    const audiencePositions = [];
+
+    const audienceColors = [
+        0xb52b38, 0x315dff, 0xe4b04b, 0x3e9a76,
+        0x8d5bc4, 0xd7dce5, 0x3a4658, 0xc76e3a
+    ];
+
+    for (let row = 0; row < 3; row += 1) {
+        const seatY = 0.42 + row * 0.68;
+        const seatZ = -6.0 - row * 0.9;
+
+        const bench = new THREE.Mesh(
+            new THREE.BoxGeometry(21, 0.24, 0.85),
+            new THREE.MeshStandardMaterial({
+                color: row % 2 ? 0x34323d : 0x282630,
+                roughness: 0.82
+            })
+        );
+        bench.position.set(0, seatY - 0.12, seatZ);
+        bench.receiveShadow = true;
+        crowd.add(bench);
+
+        for (let column = 0; column < 15; column += 1) {
+            audiencePositions.push({
+                x: (column - 7) * 1.35,
+                y: seatY,
+                z: seatZ,
+                color: audienceColors[(column * 3 + row * 5) % audienceColors.length]
+            });
+        }
+    }
+
+    function addAudiencePart(geometry, count, placement, scaleFor, rotationFor, materialColor = 0xffffff) {
+        const mesh = new THREE.InstancedMesh(
+            geometry,
+            new THREE.MeshStandardMaterial({
+                color: materialColor,
+                roughness: 0.86
+            }),
+            count
+        );
+
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+        const scale = new THREE.Vector3();
+        const quaternion = new THREE.Quaternion();
+
+        for (let index = 0; index < count; index += 1) {
+            const person = audiencePositions[index];
+            const transform = placement(person, index);
+            position.set(transform.x, transform.y, transform.z);
+            scale.copy(scaleFor(person, index));
+            quaternion.copy(rotationFor(person, index));
+            matrix.compose(position, quaternion, scale);
+            mesh.setMatrixAt(index, matrix);
+            if (transform.color) {
+                mesh.setColorAt(index, new THREE.Color(transform.color));
+            }
+        }
+
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        crowd.add(mesh);
+        return mesh;
+    }
+
+    const identityRotation = new THREE.Quaternion();
+    const noScale = () => new THREE.Vector3(1, 1, 1);
+
+    addAudiencePart(
+        new THREE.CapsuleGeometry(0.17, 0.34, 2, 7),
+        audiencePositions.length,
+        person => ({
+            x: person.x, y: person.y + 0.40, z: person.z,
+            color: person.color
+        }),
+        () => noScale(),
+        () => identityRotation
+    );
+
+    addAudiencePart(
+        new THREE.SphereGeometry(0.125, 8, 6),
+        audiencePositions.length,
+        person => ({ x: person.x, y: person.y + 0.83, z: person.z + 0.015 }),
+        () => noScale(),
+        () => identityRotation,
+        0xc18d6d
+    );
+
+    const legRotation = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(Math.PI / 2, 0, 0)
+    );
+
+    for (const side of [-1, 1]) {
+        addAudiencePart(
+            new THREE.CapsuleGeometry(0.065, 0.22, 2, 5),
+            audiencePositions.length,
+            person => ({
+                x: person.x + side * 0.105,
+                y: person.y + 0.105,
+                z: person.z + 0.20
+            }),
+            () => noScale(),
+            () => legRotation,
+            0x24242c
+        );
+    }
+
+    for (const side of [-1, 1]) {
+        const armRotation = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(0, 0, side * 0.58)
+        );
+
+        addAudiencePart(
+            new THREE.CapsuleGeometry(0.052, 0.26, 2, 5),
+            audiencePositions.length,
+            person => ({
+                x: person.x + side * 0.225,
+                y: person.y + 0.50,
+                z: person.z + 0.025
+            }),
+            () => noScale(),
+            () => armRotation,
+            0xc18d6d
+        );
+    }
+
+    scene.add(crowd);
+
+    // ========================================
+    // REFEREE
+    // ========================================
+
+    const referee = new THREE.Group();
+    referee.name = "RingReferee";
+
+    const refereeBlack = new THREE.MeshStandardMaterial({ color: 0x17191f, roughness: 0.78 });
+    const refereeWhite = new THREE.MeshStandardMaterial({ color: 0xe8e8e3, roughness: 0.88 });
+    const refereeSkin = new THREE.MeshStandardMaterial({ color: 0xb77d5d, roughness: 0.82 });
+    const refereeGold = new THREE.MeshStandardMaterial({ color: 0xd6ad45, metalness: 0.45, roughness: 0.35 });
+
+    function refereeMesh(geometry, material, parent, x, y, z) {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+        parent.add(mesh);
+        return mesh;
+    }
+
+    refereeMesh(
+        new THREE.CapsuleGeometry(0.22, 0.48, 4, 8),
+        refereeBlack,
+        referee,
+        0, 1.20, 0
+    );
+
+    for (const height of [1.02, 1.18, 1.34, 1.50]) {
+        refereeMesh(
+            new THREE.BoxGeometry(0.37, 0.055, 0.035),
+            refereeWhite,
+            referee,
+            0, height, 0.205
+        );
+    }
+
+    refereeMesh(
+        new THREE.SphereGeometry(0.21, 12, 10),
+        refereeSkin,
+        referee,
+        0, 1.88, 0
+    );
+
+    refereeMesh(
+        new THREE.BoxGeometry(0.48, 0.30, 0.34),
+        refereeBlack,
+        referee,
+        0, 0.73, 0
+    );
+
+    refereeMesh(
+        new THREE.BoxGeometry(0.20, 0.045, 0.055),
+        refereeGold,
+        referee,
+        0, 1.57, 0.22
+    );
+
+    const refereeArms = [];
+    for (const side of [-1, 1]) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * 0.27, 1.53, 0);
+        referee.add(pivot);
+
+        refereeMesh(
+            new THREE.CapsuleGeometry(0.075, 0.35, 3, 6),
+            refereeWhite,
+            pivot,
+            0, -0.23, 0
+        );
+
+        refereeMesh(
+            new THREE.SphereGeometry(0.09, 8, 7),
+            refereeSkin,
+            pivot,
+            0, -0.48, 0.02
+        );
+
+        refereeArms.push(pivot);
+    }
+
+    referee.position.set(0, 0.18, -2.25);
+    scene.add(referee);
+
+    function startRefereeCount(fighterPosition) {
+        const side = fighterPosition.x > 0 ? -1 : 1;
+        referee.position.set(
+            THREE.MathUtils.clamp(fighterPosition.x + side * 1.15, -4.4, 4.4),
+            0.18,
+            THREE.MathUtils.clamp(fighterPosition.z + 0.75, -2.25, 2.25)
+        );
+        referee.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+        refereeArms[1].rotation.z = -0.9;
+    }
+
+    function updateRefereeCount(count) {
+        refereeArms[1].rotation.z = -0.95 - Math.sin(count * 0.72) * 0.32;
+        refereeArms[0].rotation.z = 0.18;
+    }
+
+    function resetReferee() {
+        referee.position.set(0, 0.18, -2.25);
+        referee.rotation.set(0, 0, 0);
+        refereeArms.forEach((arm) => arm.rotation.set(0, 0, 0));
+    }
+
+    // ========================================
     // RESIZE
     // ========================================
+
 
     function resize() {
         const width = Math.max(
@@ -438,13 +681,28 @@ export function createWorld(THREE, canvas, viewport) {
     // WORLD UPDATE
     // ========================================
 
-    function update(delta, elapsed) {
+    function update(delta, elapsed, playerPosition = null, opponentPosition = null) {
         // Subtle arena lighting variation.
-        redLight.intensity =
-            65 + Math.sin(elapsed * 1.4) * 3;
+        redLight.intensity = 65 + Math.sin(elapsed * 1.4) * 3;
+        blueLight.intensity = 55 + Math.sin(elapsed * 1.4 + 1.5) * 3;
 
-        blueLight.intensity =
-            55 + Math.sin(elapsed * 1.4 + 1.5) * 3;
+        // Keep both fighters framed while retaining the side-on boxing view.
+        if (playerPosition && opponentPosition) {
+            const centerX = (playerPosition.x + opponentPosition.x) * 0.5;
+            const centerZ = (playerPosition.z + opponentPosition.z) * 0.5;
+            const spread = Math.abs(playerPosition.x - opponentPosition.x);
+            const desired = new THREE.Vector3(
+                centerX * 0.18,
+                6.5 + Math.min(0.5, spread * 0.025),
+                17.2 + Math.max(0, spread - 4.2) * 0.34
+            );
+
+            camera.position.lerp(desired, 1 - Math.exp(-delta * 3.2));
+            camera.lookAt(centerX * 0.72, 1.12, centerZ * 0.12);
+        }
+
+        // Small referee movement keeps the official from looking frozen.
+        refereeArms[0].rotation.z = Math.sin(elapsed * 1.1) * 0.035;
     }
 
     // ========================================
@@ -479,6 +737,11 @@ export function createWorld(THREE, canvas, viewport) {
         renderer,
         clock,
         arena,
+        crowd,
+        referee,
+        startRefereeCount,
+        updateRefereeCount,
+        resetReferee,
         resize,
         update,
         dispose
