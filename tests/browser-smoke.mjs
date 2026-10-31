@@ -128,6 +128,7 @@ try {
   assert.equal(snapshot.referee.attached, true, "referee should be attached to scene");
   assert.ok(snapshot.camera.position[2] > 10, "camera should be placed outside the ring and facing the fighters");
 
+  await page.waitForTimeout(400);
   await mkdir(artifacts, { recursive: true });
   await page.screenshot({
     path: resolve(artifacts, "smashers-boxing-scene.png"),
