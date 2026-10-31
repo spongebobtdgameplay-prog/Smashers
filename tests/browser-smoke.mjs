@@ -115,8 +115,12 @@ try {
   assert.equal(snapshot.opponent.attached, true, "opponent group should be attached to scene");
   assert.equal(snapshot.player.modelLoaded, true, "player GLB should load");
   assert.equal(snapshot.opponent.modelLoaded, true, "opponent GLB should load");
-  assert.ok(snapshot.player.modelMeshCount > 0, "player should contain visible model meshes");
-  assert.ok(snapshot.opponent.modelMeshCount > 0, "opponent should contain visible model meshes");
+  assert.ok(snapshot.player.model.meshCount > 0, "player should contain model meshes");
+  assert.ok(snapshot.opponent.model.meshCount > 0, "opponent should contain model meshes");
+  assert.ok(snapshot.player.model.visibleMeshCount > 0, "player model meshes should be visible");
+  assert.ok(snapshot.opponent.model.visibleMeshCount > 0, "opponent model meshes should be visible");
+  assert.ok(snapshot.player.model.bounds?.size[1] > 1.5, "player model should have human-scale height");
+  assert.ok(snapshot.opponent.model.bounds?.size[1] > 1.5, "opponent model should have human-scale height");
   assert.ok(snapshot.player.modelBoneNames.length > 0, "player GLB should contain a real skeleton");
   assert.ok(snapshot.opponent.modelBoneNames.length > 0, "opponent GLB should contain a real skeleton");
   assert.ok(snapshot.player.hurtboxes.length >= 5, "player should have rig-based hurtboxes");
@@ -157,8 +161,14 @@ try {
     result: "PASS",
     build: snapshot.build,
     webglVersion: snapshot.webglVersion,
-    playerMeshes: snapshot.player.modelMeshCount,
-    opponentMeshes: snapshot.opponent.modelMeshCount,
+    playerMeshes: snapshot.player.model.meshCount,
+    playerVisibleMeshes: snapshot.player.model.visibleMeshCount,
+    playerBounds: snapshot.player.model.bounds,
+    playerMappedBones: snapshot.player.bones,
+    opponentMeshes: snapshot.opponent.model.meshCount,
+    opponentVisibleMeshes: snapshot.opponent.model.visibleMeshCount,
+    opponentBounds: snapshot.opponent.model.bounds,
+    opponentMappedBones: snapshot.opponent.bones,
     playerHurtboxes: snapshot.player.hurtboxes.length,
     audienceInstancedMeshes: snapshot.crowd.instancedMeshes,
     punchContact: punch,
