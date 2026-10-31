@@ -7,7 +7,8 @@ export function createFighter(THREE, options = {}) {
         position = [0, 0.18, 0],
         maxHealth = 100,
         loader = null,
-        modelUrl = ""
+        modelUrl = "",
+        modelUrls = null
     } = options;
 
     const root = new THREE.Group();
@@ -366,28 +367,52 @@ export function createFighter(THREE, options = {}) {
         }
     }
 
-    const ready = loader && modelUrl
-        ? loader.loadAsync(modelUrl).then((gltf) => {
-            const model = gltf.scene;
-            setupBoxerModel(model, gltf.animations || []);
-            state.model = model;
-            root.add(model);
+    const modelSources = Array.isArray(modelUrls) && modelUrls.length
+        ? modelUrls.filter(Boolean)
+        : modelUrl
+            ? [modelUrl]
+            : [];
 
-            // Keep the procedural fighter as a fallback if loading fails.
-            root.traverse((object) => {
-                if (object.isMesh && !object.name.startsWith("Smashers")) {
-                    // Hide only the original primitive fighter meshes.
-                    if (!state.model || !state.model.getObjectById(object.id)) {
-                        object.visible = false;
-                    }
+    const ready = loader && modelSources.length
+        ? (async () => {
+            let lastError = null;
+
+            for (const source of modelSources) {
+                try {
+                    const gltf = await loader.loadAsync(source);
+                    const model = gltf.scene;
+
+                    setupBoxerModel(model, gltf.animations || []);
+                    state.model = model;
+                    root.add(model);
+
+                    // Keep the procedural fighter visible unless a model loaded.
+                    root.traverse((object) => {
+                        if (
+                            object.isMesh &&
+                            !object.name.startsWith("Smashers") &&
+                            !state.model.getObjectById(object.id)
+                        ) {
+                            object.visible = false;
+                        }
+                    });
+
+                    return true;
+                } catch (error) {
+                    lastError = error;
+                    console.warn(
+                        `[SMASHERS] Boxer model source failed for ${name}: ${source}`,
+                        error
+                    );
                 }
-            });
+            }
 
-            return true;
-        }).catch((error) => {
-            console.warn(`[SMASHERS] Online boxer model unavailable for ${name}; using built-in fallback.`, error);
+            console.warn(
+                `[SMASHERS] No online boxer model loaded for ${name}; using built-in fallback.`,
+                lastError
+            );
             return false;
-        })
+        })()
         : Promise.resolve(false);
 
     // ========================================
