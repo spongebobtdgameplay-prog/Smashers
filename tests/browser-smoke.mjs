@@ -109,6 +109,34 @@ try {
     mappedPlayer: snapshot.player.bones,
     mappedOpponent: snapshot.opponent.bones
   }));
+  console.log("BOXER MODEL IMPORT DIAGNOSTICS", JSON.stringify({
+    player: snapshot.player.model,
+    opponent: snapshot.opponent.model
+  }));
+
+  const workerReference = await page.evaluate(async () => {
+    try {
+      const { GLTFLoader } = await import(
+        "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/loaders/GLTFLoader.js"
+      );
+      const gltf = await new GLTFLoader().loadAsync(
+        "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb"
+      );
+      const model = gltf.scene;
+      model.updateMatrixWorld(true);
+      const bounds = new window.THREE.Box3().setFromObject(model);
+      const names = [];
+      let meshes = 0;
+      model.traverse(object => {
+        if (object.isBone) names.push(object.name);
+        if (object.isMesh) meshes += 1;
+      });
+      return { rawSize: bounds.getSize(new window.THREE.Vector3()).toArray(), bones: names, meshes };
+    } catch (error) {
+      return { error: String(error) };
+    }
+  });
+  console.log("INFINITY STORE WORKER MODEL REFERENCE", JSON.stringify(workerReference));
 
   assert.match(snapshot.webglVersion, /WebGL/i, "renderer should hold a WebGL context");
   assert.equal(snapshot.player.attached, true, "player group should be attached to scene");
