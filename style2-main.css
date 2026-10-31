@@ -328,7 +328,8 @@ body.game-page {
 }
 
 #resume-button,
-#exit-button {
+#exit-button,
+#result-exit-button {
     width: 100%;
     min-height: 48px;
     display: flex;
@@ -352,14 +353,16 @@ body.game-page {
     background: #c92d27;
 }
 
-#exit-button {
+#exit-button,
+#result-exit-button {
     margin-top: 10px;
     border: 1px solid var(--game-border);
     background: transparent;
     color: var(--game-text);
 }
 
-#exit-button:hover {
+#exit-button:hover,
+#result-exit-button:hover {
     background: rgba(255, 255, 255, 0.07);
 }
 
