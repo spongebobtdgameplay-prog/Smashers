@@ -12,12 +12,12 @@ The boxer prototype uses Quaternius' `worker.glb` model, the same source model u
 
 Smashers adds team-coloured boxing gloves and trunks to the rig at runtime. The loader checks for a local copy at `assets/models/worker.glb` first, then uses the upstream raw URL. The built-in procedural fighter remains as a fallback if both sources fail.
 
-To keep the model local in a checkout, download the CC0 source file into this directory:
+To keep the model local in a checkout, run this from the Smashers repository root:
 
 ```powershell
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb" `
-  -OutFile "assets/models/worker.glb"
+.\assets\models\download-worker.ps1
 ```
+
+The script downloads the CC0 model and verifies its upstream SHA-256 before keeping it. The full CC0 text is included as `CC0-1.0.txt`.
 
 The Infinity Store's player controller and collision code were used as the structural reference; Smashers uses a simpler radius-based ring collision model for its two fighters.
