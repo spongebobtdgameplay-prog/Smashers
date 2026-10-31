@@ -150,6 +150,7 @@ try {
     assert.equal(gear.trunks, 1, `${label} should have boxing trunks`);
     assert.equal(gear.gloves, 2, `${label} should have two boxing gloves`);
     assert.equal(gear.waistbands, 1, `${label} should have a boxing waistband`);
+    assert.equal(gear.shortsStripes, 2, `${label} boxing shorts should have both contrasting side stripes`);
     assert.equal(gear.rigLegSegments, 4, `${label} should have four bone-following lower-leg capsules`);
     assert.equal(gear.rigLegMeshesVisible, 12, `${label} replacement leg capsule meshes should all be visible`);
     assert.equal(gear.legacyPantsVisible, false, `${label} should not render the source casual trousers`);

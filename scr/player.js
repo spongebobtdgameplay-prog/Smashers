@@ -500,7 +500,7 @@ export function createFighter(THREE, options = {}) {
         const hips = state.modelBones.get("Hips");
         if (hips) {
             const trunks = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.17, 0.19, 0.20, 12),
+                new THREE.CylinderGeometry(0.23, 0.24, 0.30, 12),
                 new THREE.MeshStandardMaterial({
                     color: options.shortsColor ?? gloveColor,
                     roughness: 0.72
@@ -511,22 +511,36 @@ export function createFighter(THREE, options = {}) {
                 trunks: attachAccessoryInWorldUnits(
                     hips,
                     trunks,
-                    [0, -0.08, 0],
+                    [0, -0.13, 0.02],
                     [1, 1, 1]
                 )
             };
 
             const waistband = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.19, 0.19, 0.045, 12),
+                new THREE.CylinderGeometry(0.24, 0.24, 0.05, 12),
                 trimMaterial
             );
             waistband.name = "SmashersTrunksWaistband";
             attachAccessoryInWorldUnits(
                 hips,
                 waistband,
-                [0, 0.025, 0],
+                [0, 0.035, 0.02],
                 [1, 1, 1]
             );
+
+            for (const side of [-1, 1]) {
+                const stripe = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.032, 0.23, 0.025),
+                    trimMaterial
+                );
+                stripe.name = `SmashersTrunksStripe.${side < 0 ? "L" : "R"}`;
+                attachAccessoryInWorldUnits(
+                    hips,
+                    stripe,
+                    [side * 0.205, -0.13, 0.225],
+                    [1, 1, 1]
+                );
+            }
         }
 
         // Add boxing gloves to the model's wrist bones.

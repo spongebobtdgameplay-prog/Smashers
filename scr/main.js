@@ -1,14 +1,14 @@
-import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-010";
-import { createWorld } from "./world.js?v=20261030-smashers-boxing-010";
-import { createFighter } from "./player.js?v=20261030-smashers-boxing-010";
+import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-011";
+import { createWorld } from "./world.js?v=20261030-smashers-boxing-011";
+import { createFighter } from "./player.js?v=20261030-smashers-boxing-011";
 import {
     clampFighterPosition,
     resolveFighterPair,
     segmentSegmentDistanceSquared,
     punchHitsHurtboxes
-} from "./fight-physics.js?v=20261030-smashers-boxing-010";
+} from "./fight-physics.js?v=20261030-smashers-boxing-011";
 import { ServerPatcher } from "./v1-server.js";
-import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-010";
+import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-011";
 
 // ============================================
 // SMASHERS — FOUR-ROUND BOXING MATCH
@@ -1059,6 +1059,7 @@ function installQaBridge() {
                 trunks: 0,
                 gloves: 0,
                 waistbands: 0,
+                shortsStripes: 0,
                 rigLegSegments: 0,
                 rigLegMeshesVisible: 0,
                 legacyPantsVisible: false
@@ -1078,6 +1079,7 @@ function installQaBridge() {
                 if (object.name === "SmashersBoxingTrunks") counts.trunks += 1;
                 if (object.name.startsWith("SmashersBoxingGlove.")) counts.gloves += 1;
                 if (object.name === "SmashersTrunksWaistband") counts.waistbands += 1;
+                if (object.name.startsWith("SmashersTrunksStripe.")) counts.shortsStripes += 1;
             });
             return counts;
         };
