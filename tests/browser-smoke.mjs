@@ -116,6 +116,7 @@ try {
 
   const workerReference = await page.evaluate(async () => {
     try {
+      const THREE = await import("three");
       const { GLTFLoader } = await import(
         "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/loaders/GLTFLoader.js"
       );
@@ -124,14 +125,14 @@ try {
       );
       const model = gltf.scene;
       model.updateMatrixWorld(true);
-      const bounds = new window.THREE.Box3().setFromObject(model);
+      const bounds = new THREE.Box3().setFromObject(model);
       const names = [];
       let meshes = 0;
       model.traverse(object => {
         if (object.isBone) names.push(object.name);
         if (object.isMesh) meshes += 1;
       });
-      return { rawSize: bounds.getSize(new window.THREE.Vector3()).toArray(), bones: names, meshes };
+      return { rawSize: bounds.getSize(new THREE.Vector3()).toArray(), bones: names, meshes };
     } catch (error) {
       return { error: String(error) };
     }
