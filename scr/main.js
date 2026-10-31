@@ -68,9 +68,11 @@ const CONFIG = Object.freeze({
 });
 
 const BOXER_MODEL_URLS = [
-    new URL("../assets/models/worker.glb", import.meta.url).href,
-    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb"
+    new URL("../assets/models/casual-character.glb", import.meta.url).href,
+    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb"
 ];
+
+const BOXER_MODEL_ROTATION = [-Math.PI / 2, 0, 0];
 
 const game = {
     paused: false,
@@ -256,7 +258,8 @@ async function initializeWorld() {
         shortsColor: 0xe52d42,
         position: [-2.3, 0.18, 0],
         loader,
-        modelUrls: BOXER_MODEL_URLS
+        modelUrls: BOXER_MODEL_URLS,
+        modelRotation: BOXER_MODEL_ROTATION
     });
 
     opponent = createFighter(THREE, {
@@ -266,7 +269,8 @@ async function initializeWorld() {
         shortsColor: 0x315dff,
         position: [2.3, 0.18, 0],
         loader,
-        modelUrls: BOXER_MODEL_URLS
+        modelUrls: BOXER_MODEL_URLS,
+        modelRotation: BOXER_MODEL_ROTATION
     });
 
     // The missing scene attachment was why the ring rendered without boxers.
