@@ -303,10 +303,12 @@ export function createFighter(THREE, options = {}) {
             }
         });
 
+        // Exact bone names from the Quaternius casual-character.glb rig.
         const boneNames = [
-            "Head", "Neck", "Chest", "Torso", "Abdomen", "Hips",
-            "Shoulder.L", "UpperArm.L", "LowerArm.L", "Wrist.L",
-            "Shoulder.R", "UpperArm.R", "LowerArm.R", "Wrist.R"
+            "Root", "Body", "Hips", "Abdomen", "Torso", "Chest", "Neck", "Head",
+            "ShoulderL", "UpperArmL", "LowerArmL", "WristL",
+            "ShoulderR", "UpperArmR", "LowerArmR", "WristR",
+            "UpperLegL", "LowerLegL", "UpperLegR", "LowerLegR", "FootL", "FootR"
         ];
 
         for (const name of boneNames) {
@@ -335,7 +337,7 @@ export function createFighter(THREE, options = {}) {
 
         // Add boxing gloves to the model's wrist bones.
         for (const side of ["L", "R"]) {
-            const wrist = state.modelBones.get(`Wrist.${side}`);
+            const wrist = state.modelBones.get(`Wrist${side}`);
             if (!wrist) continue;
 
             const glove = new THREE.Mesh(
@@ -498,8 +500,8 @@ export function createFighter(THREE, options = {}) {
                 ["Torso", 0.34, "torso"],
                 ["Abdomen", 0.30, "body"],
                 ["Hips", 0.29, "body"],
-                ["UpperArm.L", 0.145, "arm"],
-                ["UpperArm.R", 0.145, "arm"]
+                ["UpperArmL", 0.145, "arm"],
+                ["UpperArmR", 0.145, "arm"]
             ];
 
             const boxes = [];
@@ -539,7 +541,7 @@ export function createFighter(THREE, options = {}) {
         getPunchHitbox() {
             root.updateMatrixWorld(true);
 
-            const lowerArm = state.modelBones.get("LowerArm.R");
+            const lowerArm = state.modelBones.get("LowerArmR");
             const glove = state.modelGloves.get("R");
             if (state.model && lowerArm && glove) {
                 return {
@@ -687,10 +689,10 @@ export function createFighter(THREE, options = {}) {
 
                 // The Infinity Store rig uses these same Quaternius bone names.
                 // Keep both hands in a guard stance and drive the right jab locally.
-                applyModelBonePose("UpperArm.L", -stepAmount - guardAmount, 0, 1.10 + guardAmount);
-                applyModelBonePose("UpperArm.R", stepAmount - punchAmount - guardAmount, 0, -1.10 - guardAmount);
-                applyModelBonePose("LowerArm.L", -0.17 + Math.max(0, swing) * 0.12, 0, 0);
-                applyModelBonePose("LowerArm.R", -0.17 + Math.max(0, -swing) * 0.12, 0, 0);
+                applyModelBonePose("UpperArmL", -stepAmount - guardAmount, 0, 1.10 + guardAmount);
+                applyModelBonePose("UpperArmR", stepAmount - punchAmount - guardAmount, 0, -1.10 - guardAmount);
+                applyModelBonePose("LowerArmL", -0.17 + Math.max(0, swing) * 0.12, 0, 0);
+                applyModelBonePose("LowerArmR", -0.17 + Math.max(0, -swing) * 0.12, 0, 0);
             }
 
             const downTarget = state.knockedDown ? -Math.PI * 0.49 : 0;
