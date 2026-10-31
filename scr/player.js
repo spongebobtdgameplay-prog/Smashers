@@ -65,9 +65,11 @@ export function createFighter(THREE, options = {}) {
         modelBones: new Map(),
         baseBoneQuaternions: new Map(),
         modelGloves: new Map(),
+        modelRawSourceSize: null,
         modelSourceSize: null,
         modelScale: 1,
         modelScaledSize: null,
+        modelExpectedBounds: null,
         modelOrigin: null,
         accessoryTransforms: null,
         attackHitResolved: false
@@ -280,9 +282,14 @@ export function createFighter(THREE, options = {}) {
     }
 
     function setupBoxerModel(sourceModel, animations) {
+        // Read the imported rig in its own source axes before applying the
+        // Y-up wrapper. This is the raw Z-up box from the GLB itself.
+        sourceModel.updateMatrixWorld(true);
+        const rawBounds = new THREE.Box3().setFromObject(sourceModel);
+        const rawSize = rawBounds.getSize(new THREE.Vector3());
+
         // Use an outer group for axis correction. Some GLB scene roots have
-        // fixed imported matrices; rotating a wrapper guarantees that the
-        // whole skinned mesh and skeleton are reoriented together.
+        // fixed imported matrices, so the wrapper rotates the entire rig.
         const model = new THREE.Group();
         model.name = `${name}BoxerModelRoot`;
         model.rotation.set(
@@ -290,28 +297,52 @@ export function createFighter(THREE, options = {}) {
             modelRotation[1] ?? 0,
             modelRotation[2] ?? 0
         );
-        model.add(sourceModel);
 
-        // Match the Infinity Store loader: establish world matrices before
-        // measuring the imported skinned rig or calculating its fit scale.
-        model.updateMatrixWorld(true);
-        const bounds = new THREE.Box3().setFromObject(model);
-        const size = bounds.getSize(new THREE.Vector3());
+        // Transform the eight source AABB corners explicitly. This avoids
+        // relying on SkinnedMesh bounding-box code that can report local-axis
+        // dimensions even when the parent rig has been rotated.
+        const rotation = model.quaternion.clone();
+        const orientedBounds = new THREE.Box3().makeEmpty();
+        for (const x of [rawBounds.min.x, rawBounds.max.x]) {
+            for (const y of [rawBounds.min.y, rawBounds.max.y]) {
+                for (const z of [rawBounds.min.z, rawBounds.max.z]) {
+                    orientedBounds.expandByPoint(
+                        new THREE.Vector3(x, y, z).applyQuaternion(rotation)
+                    );
+                }
+            }
+        }
+
+        const size = orientedBounds.getSize(new THREE.Vector3());
+        const center = orientedBounds.getCenter(new THREE.Vector3());
         const height = Math.max(size.y, 0.001);
         const fitScale = 1.76 / height;
 
+        state.modelRawSourceSize = rawSize.toArray();
         state.modelSourceSize = size.toArray();
         state.modelScale = fitScale;
+        state.modelScaledSize = size.clone().multiplyScalar(fitScale).toArray();
+        state.modelExpectedBounds = {
+            min: [
+                -state.modelScaledSize[0] * 0.5,
+                0,
+                -state.modelScaledSize[2] * 0.5
+            ],
+            max: [
+                state.modelScaledSize[0] * 0.5,
+                state.modelScaledSize[1],
+                state.modelScaledSize[2] * 0.5
+            ]
+        };
 
+        model.add(sourceModel);
         model.scale.setScalar(fitScale);
+        model.position.set(
+            -center.x * fitScale,
+            -orientedBounds.min.y * fitScale,
+            -center.z * fitScale
+        );
         model.updateMatrixWorld(true);
-
-        const scaledBounds = new THREE.Box3().setFromObject(model);
-        state.modelScaledSize = scaledBounds.getSize(new THREE.Vector3()).toArray();
-        const center = scaledBounds.getCenter(new THREE.Vector3());
-        model.position.x -= center.x;
-        model.position.z -= center.z;
-        model.position.y -= scaledBounds.min.y;
         state.modelOrigin = model.position.toArray();
 
         model.traverse((object) => {
