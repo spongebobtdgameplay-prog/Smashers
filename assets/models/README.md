@@ -1,14 +1,23 @@
 # Smashers character models
 
-The current boxer prototype loads Quaternius' `worker.glb` model at runtime:
+The boxer prototype uses Quaternius' `worker.glb` model, the same source model used by The Infinity Store's character pipeline:
 
 - Source repository: https://github.com/euuuuuuan/fatal-funnel-public
 - Source asset: `packages/renderer/assets/models/quaternius-men/worker.glb`
 - Upstream raw file: https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb
 - Original author: Quaternius
 - Original pack: Ultimate Modular Men Pack
-- Recorded licence: CC0-1.0; the source project's asset register marks the model as redistributable.
+- Recorded licence: CC0-1.0; the upstream asset register marks this file as redistributable.
+- Recorded SHA-256: `9c28614f465b7dc105f908c20c22fc045f4b07caf8c5ef0e9f8049eceb6dd38d`
 
-Smashers adds team-coloured boxing gloves and trunks at runtime. The original source file is not vendored in this directory yet; the game currently loads it from the upstream raw URL and retains its built-in procedural fighter as a fallback if the request fails.
+Smashers adds team-coloured boxing gloves and trunks to the rig at runtime. The loader checks for a local copy at `assets/models/worker.glb` first, then uses the upstream raw URL. The built-in procedural fighter remains as a fallback if both sources fail.
 
-The Infinity Store's character pipeline uses this same source model and provides the rig/bone-loading reference for Smashers.
+To keep the model local in a checkout, download the CC0 source file into this directory:
+
+```powershell
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/worker.glb" `
+  -OutFile "assets/models/worker.glb"
+```
+
+The Infinity Store's player controller and collision code were used as the structural reference; Smashers uses a simpler radius-based ring collision model for its two fighters.
