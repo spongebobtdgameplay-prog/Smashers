@@ -150,6 +150,13 @@ try {
   assert.ok(snapshot.opponent.model.visibleMeshCount > 0, "opponent model meshes should be visible");
   assert.ok(snapshot.player.model.bounds?.size[1] > 1.5, "player model should have human-scale height");
   assert.ok(snapshot.opponent.model.bounds?.size[1] > 1.5, "opponent model should have human-scale height");
+  for (const [label, model] of [["player", snapshot.player.model], ["opponent", snapshot.opponent.model]]) {
+    assert.ok(model.sourceSize?.[1] > model.sourceSize?.[0] * 2, `${label} raw GLB should be Y-up`);
+    assert.ok(model.appliedFitScale > 0.5 && model.appliedFitScale < 1.5, `${label} should use a sane model fit scale`);
+    assert.ok(model.bounds.size[0] < 2.0, `${label} model should not be too wide`);
+    assert.ok(model.bounds.size[2] < 2.0, `${label} model should not be too deep`);
+    assert.ok(model.bounds.min[1] > 0.0, `${label} feet should not be below the ring surface`);
+  }
   assert.ok(snapshot.player.modelBoneNames.length > 0, "player GLB should contain a real skeleton");
   assert.ok(snapshot.opponent.modelBoneNames.length > 0, "opponent GLB should contain a real skeleton");
   assert.ok(snapshot.player.hurtboxes.length >= 5, "player should have rig-based hurtboxes");
