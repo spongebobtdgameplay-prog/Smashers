@@ -974,6 +974,11 @@ function installQaBridge() {
                 attached: player.root.parent === world.scene,
                 modelLoaded: Boolean(player.state.model),
                 model: inspectModel(player),
+                animationActions: [...player.state.actions.keys()],
+                activeAnimation: player.state.activeActionName,
+                wristExtensionWorld: player.state.wristExtensionWorld ?? 0,
+                wristParentWorldScale: player.state.wristParentWorldScale ?? null,
+                wristExtensionLocal: player.state.wristExtensionLocal ?? 0,
                 bones: [...player.state.modelBones.keys()],
                 modelBoneNames: (() => {
                     const names = [];
@@ -994,6 +999,11 @@ function installQaBridge() {
                 attached: opponent.root.parent === world.scene,
                 modelLoaded: Boolean(opponent.state.model),
                 model: inspectModel(opponent),
+                animationActions: [...opponent.state.actions.keys()],
+                activeAnimation: opponent.state.activeActionName,
+                wristExtensionWorld: opponent.state.wristExtensionWorld ?? 0,
+                wristParentWorldScale: opponent.state.wristParentWorldScale ?? null,
+                wristExtensionLocal: opponent.state.wristExtensionLocal ?? 0,
                 bones: [...opponent.state.modelBones.keys()],
                 modelBoneNames: (() => {
                     const names = [];
