@@ -1,5 +1,4 @@
 import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-005";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/loaders/GLTFLoader.js";
 import { createWorld } from "./world.js?v=20261030-smashers-boxing-005";
 import { createFighter } from "./player.js?v=20261030-smashers-boxing-005";
 import { ServerPatcher } from "./v1-server.js";
@@ -116,7 +115,22 @@ async function initializeWorld() {
     startupPhase = "building the ring and fighters";
     setLoading(48, "BUILDING THE BOXING ARENA...");
 
-    const loader = new GLTFLoader();
+    let loader = null;
+
+    // Load the matching r162 GLTFLoader only when available. If the CDN
+    // is unreachable, the built-in fighters still keep the match playable.
+    const loaderModule = await Promise.race([
+        import("https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/loaders/GLTFLoader.js")
+            .catch((error) => {
+                console.warn("[SMASHERS] GLTFLoader CDN unavailable; using built-in fighters.", error);
+                return null;
+            }),
+        new Promise((resolve) => window.setTimeout(() => resolve(null), 5000))
+    ]);
+
+    if (loaderModule?.GLTFLoader) {
+        loader = new loaderModule.GLTFLoader();
+    }
 
     player = createFighter(THREE, {
         name: "PLAYER",
@@ -152,15 +166,33 @@ async function initializeWorld() {
 
     setLoading(66, "LOADING BOXER MODELS...");
 
-    const [playerModelLoaded, opponentModelLoaded] = await Promise.all([
-        player.ready,
-        opponent.ready
+    const modelLoad = Promise.all([player.ready, opponent.ready]);
+    const modelStatus = await Promise.race([
+        modelLoad.then(([playerLoaded, opponentLoaded]) => ({
+            complete: true,
+            playerLoaded,
+            opponentLoaded
+        })),
+        new Promise((resolve) => window.setTimeout(
+            () => resolve({ complete: false }),
+            7000
+        ))
     ]);
 
-    console.info("[SMASHERS] Boxer model status:", {
-        player: playerModelLoaded ? "Quaternius GLB" : "procedural fallback",
-        opponent: opponentModelLoaded ? "Quaternius GLB" : "procedural fallback"
-    });
+    if (modelStatus.complete) {
+        console.info("[SMASHERS] Boxer model status:", {
+            player: modelStatus.playerLoaded ? "Quaternius GLB" : "procedural fallback",
+            opponent: modelStatus.opponentLoaded ? "Quaternius GLB" : "procedural fallback"
+        });
+    } else {
+        console.info("[SMASHERS] Starting with visible fallback fighters while the online models continue loading.");
+        modelLoad.then(([playerLoaded, opponentLoaded]) => {
+            console.info("[SMASHERS] Online boxer model load completed:", {
+                player: playerLoaded,
+                opponent: opponentLoaded
+            });
+        });
+    }
 
     startupPhase = "preparing fighters and HUD";
     setLoading(88, "PREPARING THE REFEREE AND CROWD...");
@@ -541,6 +573,9 @@ function beginNextRound() {
 
 function endRound() {
     if (game.phase !== "fight" || game.finished) return;
+
+    game.keys.clear();
+    player.setBlocking(false);
 
     awardRound();
 
