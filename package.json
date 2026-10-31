@@ -1,0 +1,8 @@
+{
+  "name": "smashers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:physics": "node --test tests/fight-physics.test.js"
+  }
+}
