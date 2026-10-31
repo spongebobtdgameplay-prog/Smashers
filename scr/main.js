@@ -543,6 +543,12 @@ function endRound() {
     if (game.phase !== "fight" || game.finished) return;
 
     awardRound();
+
+    if (game.currentRound >= CONFIG.rounds) {
+        decisionResult();
+        return;
+    }
+
     game.phase = "break";
     game.breakRemaining = CONFIG.breakDuration;
     game.timeRemaining = CONFIG.breakDuration;
