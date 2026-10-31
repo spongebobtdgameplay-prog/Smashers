@@ -151,7 +151,7 @@ async function initializeWorld() {
         shortsColor: 0x315dff,
         position: [2.3, 0.18, 0],
         loader,
-        modelUrl: BOXER_MODEL_URL
+        modelUrls: BOXER_MODEL_URLS
     });
 
     // The missing scene attachment was why the ring rendered without boxers.
