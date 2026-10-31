@@ -238,7 +238,7 @@ export function createWorld(THREE, canvas, viewport) {
     );
 
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.22;
+    ground.position.y = -0.31;
     ground.receiveShadow = true;
 
     arena.add(ground);
@@ -895,6 +895,23 @@ export function createWorld(THREE, canvas, viewport) {
         referee,
         0, 0.73, 0
     );
+
+    // The referee needs visible legs and shoes down to the ring canvas.
+    for (const side of [-1, 1]) {
+        refereeMesh(
+            new THREE.CapsuleGeometry(0.085, 0.42, 3, 7),
+            refereeBlack,
+            referee,
+            side * 0.12, 0.36, 0
+        );
+
+        refereeMesh(
+            new THREE.BoxGeometry(0.18, 0.10, 0.34),
+            postMaterial,
+            referee,
+            side * 0.12, 0.075, 0.055
+        );
+    }
 
     refereeMesh(
         new THREE.BoxGeometry(0.20, 0.045, 0.055),
