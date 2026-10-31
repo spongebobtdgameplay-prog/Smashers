@@ -808,11 +808,25 @@ export function createFighter(THREE, options = {}) {
                     if (state.mixer && state.actions.has("punch")) {
                         // The mixer has just restored this frame's animated
                         // wrist pose, so add extension without accumulating it.
-                        rightWrist.position.z += extension;
                     } else {
                         rightWrist.position.copy(wristBase);
-                        rightWrist.position.z += extension;
                     }
+
+                    // Quaternius' rig has a large scale baked into the wrist
+                    // parent chain. Convert the requested world-space jab
+                    // extension into that parent's local units.
+                    const wristParent = rightWrist.parent;
+                    wristParent?.updateMatrixWorld(true);
+                    const parentScale = wristParent
+                        ? wristParent.getWorldScale(new THREE.Vector3())
+                        : new THREE.Vector3(1, 1, 1);
+                    const localExtension = extension /
+                        Math.max(Math.abs(parentScale.z), 0.0001);
+                    rightWrist.position.z += localExtension;
+
+                    state.wristExtensionWorld = extension;
+                    state.wristParentWorldScale = parentScale.toArray();
+                    state.wristExtensionLocal = localExtension;
                 }
             }
 
