@@ -929,9 +929,11 @@ function installQaBridge() {
         return {
             meshCount,
             visibleMeshCount,
+            rawSourceSize: fighter.state.modelRawSourceSize,
             sourceSize: fighter.state.modelSourceSize,
             appliedFitScale: fighter.state.modelScale,
             scaledSourceSize: fighter.state.modelScaledSize,
+            expectedBounds: fighter.state.modelExpectedBounds,
             localPosition: model.position.toArray(),
             localRotation: model.rotation.toArray(),
             localScale: model.scale.toArray(),
