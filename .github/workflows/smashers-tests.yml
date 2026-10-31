@@ -1,0 +1,25 @@
+name: Smashers tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
+      - scr/fight-physics.js
+      - tests/**
+      - .github/workflows/smashers-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run test:physics
