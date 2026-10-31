@@ -179,6 +179,15 @@ try {
   assert.equal(punch.hit, true, `swept fist should hit target hurtbox: ${JSON.stringify(punch)}`);
   assert.ok(punch.damage > 0, "a registered hit should reduce health");
 
+  const naturalPunches = await page.evaluate(
+    () => window.__SMASHERS_QA__.testNaturalPunchSweep("player")
+  );
+  console.log("NATURAL PUNCH DISTANCE SWEEP", JSON.stringify(naturalPunches));
+  assert.ok(
+    naturalPunches.some(result => result.hit),
+    "a punch should naturally connect at a valid in-ring separation"
+  );
+
   await page.evaluate(() => window.__SMASHERS_QA__.setHitboxDebug(true));
   assert.equal(
     await page.evaluate(() => window.__SMASHERS_QA__.snapshot().hitboxDebugVisible),
@@ -208,6 +217,7 @@ try {
     playerHurtboxes: snapshot.player.hurtboxes.length,
     audienceInstancedMeshes: snapshot.crowd.instancedMeshes,
     punchContact: punch,
+    naturalPunches,
     failedRequests
   }, null, 2));
 } finally {
