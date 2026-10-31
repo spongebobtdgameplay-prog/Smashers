@@ -66,6 +66,7 @@ export function createFighter(THREE, options = {}) {
         baseBoneQuaternions: new Map(),
         baseBonePositions: new Map(),
         modelGloves: new Map(),
+        rigCapsules: [],
         modelRawSourceSize: null,
         modelSourceSize: null,
         modelScale: 1,
@@ -336,6 +337,10 @@ export function createFighter(THREE, options = {}) {
 
         model.traverse((object) => {
             if (!object.isMesh) return;
+            if (object.name === "Casual2_Legs") {
+                object.visible = false;
+                return;
+            }
             object.castShadow = true;
             object.receiveShadow = false;
             const materials = Array.isArray(object.material)
@@ -439,6 +444,54 @@ export function createFighter(THREE, options = {}) {
                 [0, -0.015, 0.225],
                 [1, 1, 1]
             );
+        }
+
+        // The source GLB is a casual outfit. Keep its rig and shoes, but
+        // replace the long-trouser mesh with skin-toned capsules following
+        // the actual animated upper/lower leg bones.
+        const rigLegDefinitions = [
+            ["UpperLegL", "LowerLegL", 0.132],
+            ["LowerLegL", "FootL", 0.105],
+            ["UpperLegR", "LowerLegR", 0.132],
+            ["LowerLegR", "FootR", 0.105]
+        ];
+
+        for (const [startName, endName, radius] of rigLegDefinitions) {
+            const startBone = state.modelBones.get(startName);
+            const endBone = state.modelBones.get(endName);
+            if (!startBone || !endBone) continue;
+
+            const capsuleGroup = new THREE.Group();
+            capsuleGroup.name = `SmashersRigLeg.${startName}`;
+
+            const tube = new THREE.Mesh(
+                new THREE.CylinderGeometry(radius, radius, 1, 10),
+                skinMaterial
+            );
+            const startCap = new THREE.Mesh(
+                new THREE.SphereGeometry(radius, 10, 8),
+                skinMaterial
+            );
+            const endCap = new THREE.Mesh(
+                new THREE.SphereGeometry(radius, 10, 8),
+                skinMaterial
+            );
+
+            for (const mesh of [tube, startCap, endCap]) {
+                mesh.castShadow = true;
+                mesh.receiveShadow = false;
+                capsuleGroup.add(mesh);
+            }
+
+            root.add(capsuleGroup);
+            state.rigCapsules.push({
+                startBone,
+                endBone,
+                capsuleGroup,
+                tube,
+                startCap,
+                endCap
+            });
         }
 
         const hips = state.modelBones.get("Hips");
@@ -583,6 +636,32 @@ export function createFighter(THREE, options = {}) {
         })()
         : Promise.resolve(false);
 
+    function updateRigCapsules() {
+        if (!state.rigCapsules.length) return;
+
+        root.updateMatrixWorld(true);
+        const inverseRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
+        const up = new THREE.Vector3(0, 1, 0);
+
+        for (const capsule of state.rigCapsules) {
+            const start = capsule.startBone
+                .getWorldPosition(new THREE.Vector3())
+                .applyMatrix4(inverseRoot);
+            const end = capsule.endBone
+                .getWorldPosition(new THREE.Vector3())
+                .applyMatrix4(inverseRoot);
+            const direction = end.clone().sub(start);
+            const length = direction.length();
+            if (length < 1e-4) continue;
+
+            capsule.capsuleGroup.position.copy(start).add(end).multiplyScalar(0.5);
+            capsule.capsuleGroup.quaternion.setFromUnitVectors(up, direction.normalize());
+            capsule.tube.scale.y = length;
+            capsule.startCap.position.set(0, -length * 0.5, 0);
+            capsule.endCap.position.set(0, length * 0.5, 0);
+        }
+    }
+
     // ========================================
     // FIGHTER API
     // ========================================
@@ -593,6 +672,7 @@ export function createFighter(THREE, options = {}) {
         torso,
         state,
         ready,
+        updateRigCapsules,
 
         leftArm,
         rightArm,

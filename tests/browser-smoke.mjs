@@ -150,6 +150,8 @@ try {
     assert.equal(gear.trunks, 1, `${label} should have boxing trunks`);
     assert.equal(gear.gloves, 2, `${label} should have two boxing gloves`);
     assert.equal(gear.waistbands, 1, `${label} should have a boxing waistband`);
+    assert.equal(gear.rigLegSegments, 4, `${label} should have four bone-following lower-leg capsules`);
+    assert.equal(gear.legacyPantsVisible, false, `${label} should not render the source casual trousers`);
   }
   assert.ok(snapshot.framing.ringWidthFraction > 0.68, "ring should fill more of the gameplay view");
   assert.ok(snapshot.framing.ringWidthFraction < 0.94, "camera should leave room around the ring");

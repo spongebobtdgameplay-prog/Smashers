@@ -1,14 +1,14 @@
-import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-008";
-import { createWorld } from "./world.js?v=20261030-smashers-boxing-008";
-import { createFighter } from "./player.js?v=20261030-smashers-boxing-008";
+import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-009";
+import { createWorld } from "./world.js?v=20261030-smashers-boxing-009";
+import { createFighter } from "./player.js?v=20261030-smashers-boxing-009";
 import {
     clampFighterPosition,
     resolveFighterPair,
     segmentSegmentDistanceSquared,
     punchHitsHurtboxes
-} from "./fight-physics.js?v=20261030-smashers-boxing-008";
+} from "./fight-physics.js?v=20261030-smashers-boxing-009";
 import { ServerPatcher } from "./v1-server.js";
-import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-008";
+import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-009";
 
 // ============================================
 // SMASHERS — FOUR-ROUND BOXING MATCH
@@ -884,6 +884,9 @@ function animate() {
         if (world) {
             if (!game.paused && !game.finished) updateMatch(delta);
 
+            player?.updateRigCapsules();
+            opponent?.updateRigCapsules();
+
             world.update(
                 delta,
                 game.elapsed,
@@ -1051,8 +1054,21 @@ function installQaBridge() {
         };
 
         const boxingGear = (fighter) => {
-            const counts = { singlets: 0, trunks: 0, gloves: 0, waistbands: 0 };
+            const counts = {
+                singlets: 0,
+                trunks: 0,
+                gloves: 0,
+                waistbands: 0,
+                rigLegSegments: 0,
+                legacyPantsVisible: false
+            };
             fighter.root.traverse((object) => {
+                if (object.name.startsWith("SmashersRigLeg.")) {
+                    counts.rigLegSegments += 1;
+                }
+                if (object.name === "Casual2_Legs") {
+                    counts.legacyPantsVisible = object.visible;
+                }
                 if (!object.isMesh) return;
                 if (object.name === "SmashersBoxingSinglet") counts.singlets += 1;
                 if (object.name === "SmashersBoxingTrunks") counts.trunks += 1;
