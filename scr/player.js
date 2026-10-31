@@ -64,6 +64,10 @@ export function createFighter(THREE, options = {}) {
         modelBones: new Map(),
         baseBoneQuaternions: new Map(),
         modelGloves: new Map(),
+        modelSourceSize: null,
+        modelScale: 1,
+        modelScaledSize: null,
+        modelOrigin: null,
         attackHitResolved: false
     };
 
@@ -277,14 +281,21 @@ export function createFighter(THREE, options = {}) {
         const bounds = new THREE.Box3().setFromObject(model);
         const size = bounds.getSize(new THREE.Vector3());
         const height = Math.max(size.y, 0.001);
-        model.scale.setScalar(2.15 / height);
+        const fitScale = 1.76 / height;
+
+        state.modelSourceSize = size.toArray();
+        state.modelScale = fitScale;
+
+        model.scale.setScalar(fitScale);
         model.updateMatrixWorld(true);
 
         const scaledBounds = new THREE.Box3().setFromObject(model);
+        state.modelScaledSize = scaledBounds.getSize(new THREE.Vector3()).toArray();
         const center = scaledBounds.getCenter(new THREE.Vector3());
         model.position.x -= center.x;
         model.position.z -= center.z;
         model.position.y -= scaledBounds.min.y;
+        state.modelOrigin = model.position.toArray();
 
         model.traverse((object) => {
             if (!object.isMesh) return;
