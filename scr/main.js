@@ -1,6 +1,11 @@
 import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-005";
 import { createWorld } from "./world.js?v=20261030-smashers-boxing-005";
-import { createFighter } from "./player.js?v=20261030-smashers-boxing-005";
+import { createFighter } from "./player.js?v=20261030-smashers-boxing-006";
+import {
+    clampFighterPosition,
+    resolveFighterPair,
+    punchHitsHurtboxes
+} from "./fight-physics.js?v=20261030-smashers-boxing-006";
 import { ServerPatcher } from "./v1-server.js";
 import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-005";
 
@@ -51,15 +56,14 @@ const CONFIG = Object.freeze({
     opponentSpeed: 2.35,
     playerDamage: 12,
     opponentDamage: 8,
-    playerAttackRange: 2.05,
-    opponentAttackRange: 1.9,
-    fighterRadius: 0.48,
-    fighterSeparation: 1.02,
+    playerAttackRange: 2.0,
+    opponentAttackRange: 2.0,
+    fighterRadius: 0.42,
     arenaBounds: {
-        minX: -5.0,
-        maxX: 5.0,
-        minZ: -2.58,
-        maxZ: 2.58
+        minX: -5.55,
+        maxX: 5.55,
+        minZ: -3.05,
+        maxZ: 3.05
     }
 });
 
@@ -417,43 +421,59 @@ function applyDamage(target, amount) {
     }
 }
 
-function clampFighterToRing(fighter) {
-    const bounds = CONFIG.arenaBounds;
-    const radius = CONFIG.fighterRadius;
+function resolvePunch(attacker, target, baseDamage) {
+    if (
+        game.finished ||
+        game.phase !== "fight" ||
+        !attacker?.isAttacking ||
+        target?.isKnockedDown
+    ) {
+        return false;
+    }
 
-    fighter.position.x = THREE.MathUtils.clamp(
-        fighter.position.x,
-        bounds.minX + radius,
-        bounds.maxX - radius
+    const hit = punchHitsHurtboxes(
+        attacker.getPunchHitbox(),
+        target.getHurtboxes()
     );
 
-    fighter.position.z = THREE.MathUtils.clamp(
-        fighter.position.z,
-        bounds.minZ + radius,
-        bounds.maxZ - radius
+    if (!hit || !attacker.registerAttackHit()) return false;
+
+    const multiplier = hit.zone === "head"
+        ? 1.3
+        : hit.zone === "body"
+            ? 1.05
+            : 0.85;
+
+    const direction = attacker.getForwardVector();
+    target.position.x += direction.x * 0.16;
+    target.position.z += direction.z * 0.16;
+    clampFighterToRing(target);
+
+    applyDamage(target, baseDamage * multiplier);
+    showMessage(
+        hit.zone === "head" ? "CLEAN HEAD SHOT!" : "SOLID BODY SHOT!",
+        520
+    );
+    return true;
+}
+
+function clampFighterToRing(fighter) {
+    clampFighterPosition(
+        fighter.position,
+        CONFIG.fighterRadius,
+        CONFIG.arenaBounds
     );
 }
 
 function resolveFighterCollision(first, second) {
-    const dx = second.position.x - first.position.x;
-    const dz = second.position.z - first.position.z;
-    const distance = Math.hypot(dx, dz);
-    const minimum = CONFIG.fighterSeparation;
-
-    if (distance >= minimum) return;
-
-    const safeDistance = Math.max(distance, 0.0001);
-    const normalX = distance > 0.0001 ? dx / safeDistance : 1;
-    const normalZ = distance > 0.0001 ? dz / safeDistance : 0;
-    const overlap = (minimum - distance) * 0.5;
-
-    first.position.x -= normalX * overlap;
-    first.position.z -= normalZ * overlap;
-    second.position.x += normalX * overlap;
-    second.position.z += normalZ * overlap;
-
-    clampFighterToRing(first);
-    clampFighterToRing(second);
+    resolveFighterPair(
+        first.position,
+        second.position,
+        CONFIG.fighterRadius,
+        CONFIG.fighterRadius,
+        CONFIG.arenaBounds,
+        6
+    );
 }
 
 function updatePlayer(delta) {
@@ -490,9 +510,7 @@ function updateOpponent(delta) {
         );
     } else {
         opponent.move(0, 0, delta, CONFIG.opponentSpeed);
-        if (opponent.attack()) {
-            applyDamage(player, CONFIG.opponentDamage);
-        }
+        opponent.attack();
     }
 
     clampFighterToRing(opponent);
@@ -500,16 +518,7 @@ function updateOpponent(delta) {
 
 function playerAttack() {
     if (game.paused || game.finished || game.phase !== "fight") return;
-    if (!player.attack()) return;
-
-    const distance = Math.hypot(
-        opponent.position.x - player.position.x,
-        opponent.position.z - player.position.z
-    );
-
-    if (distance <= CONFIG.playerAttackRange) {
-        applyDamage(opponent, CONFIG.playerDamage);
-    }
+    player.attack();
 }
 
 function playerDodgeOrGetUp() {
@@ -617,6 +626,9 @@ function updateMatch(delta) {
     updatePlayer(delta);
     updateOpponent(delta);
     resolveFighterCollision(player, opponent);
+
+    resolvePunch(player, opponent, CONFIG.playerDamage);
+    resolvePunch(opponent, player, CONFIG.opponentDamage);
 
     game.timeRemaining = Math.max(0, game.timeRemaining - delta);
     updateTimerUI();
