@@ -812,21 +812,38 @@ export function createFighter(THREE, options = {}) {
                         rightWrist.position.copy(wristBase);
                     }
 
-                    // Quaternius' rig has a large scale baked into the wrist
-                    // parent chain. Convert the requested world-space jab
-                    // extension into that parent's local units.
+                    // Convert a world-space forward displacement through
+                    // the complete parent matrix. Bone chains contain rotated
+                    // and non-uniform baked scales, so dividing by worldScale.z
+                    // is not equivalent to moving along the character's forward axis.
                     const wristParent = rightWrist.parent;
-                    wristParent?.updateMatrixWorld(true);
-                    const parentScale = wristParent
-                        ? wristParent.getWorldScale(new THREE.Vector3())
-                        : new THREE.Vector3(1, 1, 1);
-                    const localExtension = extension /
-                        Math.max(Math.abs(parentScale.z), 0.0001);
-                    rightWrist.position.z += localExtension;
+                    root.updateMatrixWorld(true);
 
-                    state.wristExtensionWorld = extension;
-                    state.wristParentWorldScale = parentScale.toArray();
-                    state.wristExtensionLocal = localExtension;
+                    if (wristParent) {
+                        const parentWorld = wristParent.matrixWorld;
+                        const currentWorld = rightWrist.position.clone()
+                            .applyMatrix4(parentWorld);
+                        const forward = new THREE.Vector3(0, 0, 1)
+                            .applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()))
+                            .normalize();
+                        const targetWorld = currentWorld.addScaledVector(forward, extension);
+                        const inverseParentWorld = new THREE.Matrix4()
+                            .copy(parentWorld)
+                            .invert();
+
+                        rightWrist.position.copy(
+                            targetWorld.applyMatrix4(inverseParentWorld)
+                        );
+
+                        state.wristExtensionWorld = extension;
+                        state.wristParentWorldScale = wristParent
+                            .getWorldScale(new THREE.Vector3())
+                            .toArray();
+                        state.wristExtensionLocal = rightWrist.position
+                            .clone()
+                            .sub(wristBase)
+                            .toArray();
+                    }
                 }
             }
 
