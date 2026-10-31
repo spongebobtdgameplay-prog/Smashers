@@ -282,14 +282,13 @@ export function createFighter(THREE, options = {}) {
     }
 
     function setupBoxerModel(sourceModel, animations) {
-        // Read the imported rig in its own source axes before applying the
-        // Y-up wrapper. This is the raw Z-up box from the GLB itself.
+        // Read the imported GLB bounds in its own authored coordinate system.
         sourceModel.updateMatrixWorld(true);
         const rawBounds = new THREE.Box3().setFromObject(sourceModel);
         const rawSize = rawBounds.getSize(new THREE.Vector3());
 
-        // Use an outer group for axis correction. Some GLB scene roots have
-        // fixed imported matrices, so the wrapper rotates the entire rig.
+        // Some Quaternius exports are Z-up. An outer group rotates the whole
+        // skinned rig, while the fit is calculated from rotated box corners.
         const model = new THREE.Group();
         model.name = `${name}BoxerModelRoot`;
         model.rotation.set(
@@ -298,9 +297,6 @@ export function createFighter(THREE, options = {}) {
             modelRotation[2] ?? 0
         );
 
-        // Transform the eight source AABB corners explicitly. This avoids
-        // relying on SkinnedMesh bounding-box code that can report local-axis
-        // dimensions even when the parent rig has been rotated.
         const rotation = model.quaternion.clone();
         const orientedBounds = new THREE.Box3().makeEmpty();
         for (const x of [rawBounds.min.x, rawBounds.max.x]) {
@@ -313,34 +309,26 @@ export function createFighter(THREE, options = {}) {
             }
         }
 
-        const size = orientedBounds.getSize(new THREE.Vector3());
-        const center = orientedBounds.getCenter(new THREE.Vector3());
-        const height = Math.max(size.y, 0.001);
-        const fitScale = 1.76 / height;
+        const orientedSize = orientedBounds.getSize(new THREE.Vector3());
+        const orientedCenter = orientedBounds.getCenter(new THREE.Vector3());
+        const fitScale = 1.76 / Math.max(orientedSize.y, 0.001);
+        const scaledSize = orientedSize.clone().multiplyScalar(fitScale);
 
         state.modelRawSourceSize = rawSize.toArray();
-        state.modelSourceSize = size.toArray();
+        state.modelSourceSize = orientedSize.toArray();
         state.modelScale = fitScale;
-        state.modelScaledSize = size.clone().multiplyScalar(fitScale).toArray();
+        state.modelScaledSize = scaledSize.toArray();
         state.modelExpectedBounds = {
-            min: [
-                -state.modelScaledSize[0] * 0.5,
-                0,
-                -state.modelScaledSize[2] * 0.5
-            ],
-            max: [
-                state.modelScaledSize[0] * 0.5,
-                state.modelScaledSize[1],
-                state.modelScaledSize[2] * 0.5
-            ]
+            min: [-scaledSize.x * 0.5, 0, -scaledSize.z * 0.5],
+            max: [scaledSize.x * 0.5, scaledSize.y, scaledSize.z * 0.5]
         };
 
         model.add(sourceModel);
         model.scale.setScalar(fitScale);
         model.position.set(
-            -center.x * fitScale,
+            -orientedCenter.x * fitScale,
             -orientedBounds.min.y * fitScale,
-            -center.z * fitScale
+            -orientedCenter.z * fitScale
         );
         model.updateMatrixWorld(true);
         state.modelOrigin = model.position.toArray();
@@ -415,7 +403,7 @@ export function createFighter(THREE, options = {}) {
         const hips = state.modelBones.get("Hips");
         if (hips) {
             const trunks = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.27, 0.34, 0.34, 12),
+                new THREE.CylinderGeometry(0.22, 0.25, 0.22, 12),
                 new THREE.MeshStandardMaterial({
                     color: options.shortsColor ?? gloveColor,
                     roughness: 0.72
@@ -426,7 +414,7 @@ export function createFighter(THREE, options = {}) {
                 trunks: attachAccessoryInWorldUnits(
                     hips,
                     trunks,
-                    [0, -0.13, 0],
+                    [0, -0.10, 0],
                     [1, 1, 1]
                 )
             };
@@ -438,7 +426,7 @@ export function createFighter(THREE, options = {}) {
             if (!wrist) continue;
 
             const glove = new THREE.Mesh(
-                new THREE.SphereGeometry(0.155, 12, 10),
+                new THREE.SphereGeometry(0.105, 12, 10),
                 new THREE.MeshStandardMaterial({
                     color: gloveColor,
                     roughness: 0.48,
@@ -450,8 +438,8 @@ export function createFighter(THREE, options = {}) {
             const transform = attachAccessoryInWorldUnits(
                 wrist,
                 glove,
-                [0, -0.015, 0.055],
-                [1.08, 0.94, 1.28]
+                [0, -0.01, 0.04],
+                [1.0, 0.9, 1.1]
             );
 
             state.accessoryTransforms.gloves ??= {};
