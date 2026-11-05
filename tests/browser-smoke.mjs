@@ -225,6 +225,57 @@ try {
     naturalPunches,
     failedRequests
   }, null, 2));
+
+  // The same fight screen must expose working on-screen controls on a phone.
+  const mobilePage = await browser.newPage({
+    viewport: { width: 844, height: 390 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true
+  });
+  const mobileErrors = [];
+  mobilePage.on("pageerror", error => mobileErrors.push(error.message));
+  const mobileResponse = await mobilePage.goto("http://127.0.0.1:4173/game.html?qa=mobile", {
+    waitUntil: "domcontentloaded",
+    timeout: 30000
+  });
+  assert.equal(mobileResponse?.status(), 200, "mobile game screen should be served");
+  await mobilePage.waitForFunction(() => {
+    return document.getElementById("loading-screen")?.classList.contains("hidden") &&
+      Boolean(window.__SMASHERS_QA__);
+  }, { timeout: 45000 });
+
+  const mobileControlState = await mobilePage.evaluate(() => ({
+    display: getComputedStyle(document.getElementById("mobile-controls")).display,
+    count: document.querySelectorAll("#mobile-controls button").length,
+    keyboardHints: getComputedStyle(document.getElementById("controls-display")).display
+  }));
+  assert.equal(mobileControlState.display, "flex", "touch controls should be visible on mobile");
+  assert.equal(mobileControlState.count, 7, "mobile should expose four movement and three combat buttons");
+  assert.equal(mobileControlState.keyboardHints, "none", "desktop-only keyboard hints should be hidden on mobile");
+
+  const forwardButton = mobilePage.locator('[data-control-key="KeyW"]');
+  await forwardButton.dispatchEvent("pointerdown", {
+    pointerId: 17,
+    pointerType: "touch",
+    isPrimary: true,
+    button: 0
+  });
+  assert.ok(
+    await forwardButton.evaluate(button => button.classList.contains("is-pressed")),
+    "movement button should show its pressed state"
+  );
+  await forwardButton.dispatchEvent("pointerup", {
+    pointerId: 17,
+    pointerType: "touch",
+    isPrimary: true,
+    button: 0
+  });
+  await mobilePage.locator("#mobile-punch").tap();
+  await mobilePage.locator("#mobile-block").tap();
+  await mobilePage.locator("#mobile-dodge").tap();
+  assert.deepEqual(mobileErrors, [], "mobile game should not throw uncaught JavaScript errors");
+  await mobilePage.close();
 } finally {
   if (browser) await browser.close();
   await new Promise(resolveClose => server.close(resolveClose));
