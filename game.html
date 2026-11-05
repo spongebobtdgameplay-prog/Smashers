@@ -3,12 +3,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#101014">
 
     <title>Smashers — Fight</title>
 
-    <link rel="stylesheet" href="style2-main.css?v=20261030-smashers-boxing-011">
+    <link rel="stylesheet" href="style2-main.css?v=20261104-smashers-mobile-012">
 </head>
 
 <body class="game-page">
@@ -112,6 +112,21 @@
                 <span>ESC <small>PAUSE</small></span>
             </div>
 
+            <!-- TOUCH CONTROLS: shown on phones and touch screens -->
+            <div id="mobile-controls" aria-label="Touch fight controls">
+                <div class="mobile-dpad" aria-label="Movement">
+                    <button type="button" class="dpad-up" data-control-key="KeyW" aria-label="Move forward">▲</button>
+                    <button type="button" class="dpad-left" data-control-key="KeyA" aria-label="Move left">◀</button>
+                    <button type="button" class="dpad-down" data-control-key="KeyS" aria-label="Move backward">▼</button>
+                    <button type="button" class="dpad-right" data-control-key="KeyD" aria-label="Move right">▶</button>
+                </div>
+                <div class="mobile-actions" aria-label="Combat actions">
+                    <button type="button" id="mobile-punch" class="mobile-action punch-action" data-control-action="punch">PUNCH</button>
+                    <button type="button" id="mobile-block" class="mobile-action block-action" data-control-key="KeyK">BLOCK</button>
+                    <button type="button" id="mobile-dodge" class="mobile-action dodge-action" data-control-action="dodge">DODGE</button>
+                </div>
+            </div>
+
         </div>
 
     </main>
@@ -119,11 +134,11 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "./engine/three/three.module.js?v=20261030-smashers-boxing-011"
+                "three": "./engine/three/three.module.js?v=20261104-smashers-mobile-012"
             }
         }
     </script>
-    <script type="module" src="scr/main.js?v=20261030-smashers-boxing-011"></script>
+    <script type="module" src="scr/main.js?v=20261104-smashers-mobile-012"></script>
 
 </body>
 </html>
