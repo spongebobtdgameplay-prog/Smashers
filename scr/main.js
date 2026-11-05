@@ -1,14 +1,15 @@
-import * as THREE from "../engine/three/three.module.js?v=20261030-smashers-boxing-011";
-import { createWorld } from "./world.js?v=20261030-smashers-boxing-011";
-import { createFighter } from "./player.js?v=20261030-smashers-boxing-011";
+import * as THREE from "../engine/three/three.module.js?v=20261104-smashers-mobile-012";
+import { GLTFLoader } from "../engine/three/addons/loaders/GLTFLoader.js?v=20261104-smashers-mobile-012";
+import { createWorld } from "./world.js?v=20261104-smashers-mobile-012";
+import { createFighter } from "./player.js?v=20261104-smashers-mobile-012";
 import {
     clampFighterPosition,
     resolveFighterPair,
     segmentSegmentDistanceSquared,
     punchHitsHurtboxes
-} from "./fight-physics.js?v=20261030-smashers-boxing-011";
+} from "./fight-physics.js?v=20261104-smashers-mobile-012";
 import { ServerPatcher } from "./v1-server.js";
-import { BUILD_LABEL } from "./version.js?v=20261030-smashers-boxing-011";
+import { BUILD_LABEL } from "./version.js?v=20261104-smashers-mobile-012";
 
 // ============================================
 // SMASHERS — FOUR-ROUND BOXING MATCH
@@ -69,8 +70,7 @@ const CONFIG = Object.freeze({
 });
 
 const BOXER_MODEL_URLS = [
-    new URL("../assets/models/casual-character.glb", import.meta.url).href,
-    "https://raw.githubusercontent.com/euuuuuuan/fatal-funnel-public/main/packages/renderer/assets/models/quaternius-men/casual-character.glb"
+    new URL("../assets/models/casual-character.glb", import.meta.url).href
 ];
 
 const BOXER_MODEL_ROTATION = [0, 0, 0];
@@ -269,22 +269,9 @@ async function initializeWorld() {
     startupPhase = "building the ring and fighters";
     setLoading(48, "BUILDING THE BOXING ARENA...");
 
-    let loader = null;
-
-    // Load the matching r162 GLTFLoader only when available. If the CDN
-    // is unreachable, the built-in fighters still keep the match playable.
-    const loaderModule = await Promise.race([
-        import("https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/loaders/GLTFLoader.js")
-            .catch((error) => {
-                console.warn("[SMASHERS] GLTFLoader CDN unavailable; using built-in fighters.", error);
-                return null;
-            }),
-        new Promise((resolve) => window.setTimeout(() => resolve(null), 5000))
-    ]);
-
-    if (loaderModule?.GLTFLoader) {
-        loader = new loaderModule.GLTFLoader();
-    }
+    // Keep the matching r162 GLTFLoader bundled with Smashers. The game
+    // no longer needs a third-party CDN just to display its local boxer GLB.
+    const loader = new GLTFLoader();
 
     player = createFighter(THREE, {
         name: "PLAYER",
@@ -817,6 +804,64 @@ if (rematchButton) {
     rematchButton.addEventListener("click", () => window.location.reload());
 }
 
+// Touch controls mirror the keyboard controls so the same movement, blocking,
+// punching and dodge/knockdown logic is used on desktop and mobile.
+const mobileControls = $("mobile-controls");
+const activeMobilePointers = new Map();
+
+function releaseMobilePointer(event) {
+    const active = activeMobilePointers.get(event.pointerId);
+    if (!active) return;
+    if (active.key) game.keys.delete(active.key);
+    active.button.classList.remove("is-pressed");
+    activeMobilePointers.delete(event.pointerId);
+}
+
+function releaseAllMobilePointers() {
+    for (const [pointerId, active] of activeMobilePointers) {
+        if (active.key) game.keys.delete(active.key);
+        active.button.classList.remove("is-pressed");
+        activeMobilePointers.delete(pointerId);
+    }
+}
+
+if (mobileControls) {
+    mobileControls.addEventListener("pointerdown", (event) => {
+        const button = event.target.closest("[data-control-key], [data-control-action]");
+        if (!button || !mobileControls.contains(button)) return;
+
+        event.preventDefault();
+        if (activeMobilePointers.has(event.pointerId)) return;
+
+        try {
+            button.setPointerCapture(event.pointerId);
+        } catch {
+            // Pointer capture is a convenience; the global release listeners
+            // below still prevent a stuck movement key if capture is unavailable.
+        }
+
+        button.classList.add("is-pressed");
+        const key = button.dataset.controlKey || "";
+
+        if (key) {
+            game.keys.add(key);
+        } else if (button.dataset.controlAction === "punch") {
+            playerAttack();
+        } else if (button.dataset.controlAction === "dodge") {
+            playerDodgeOrGetUp();
+        }
+
+        activeMobilePointers.set(event.pointerId, { button, key });
+    });
+
+    mobileControls.addEventListener("pointerup", releaseMobilePointer);
+    mobileControls.addEventListener("pointercancel", releaseMobilePointer);
+    mobileControls.addEventListener("lostpointercapture", releaseMobilePointer);
+}
+
+window.addEventListener("pointerup", releaseMobilePointer);
+window.addEventListener("pointercancel", releaseMobilePointer);
+
 const CONTROL_KEYS = new Set([
     "KeyW", "KeyA", "KeyS", "KeyD",
     "KeyJ", "KeyK", "Space", "Escape", "F3"
@@ -860,12 +905,14 @@ window.addEventListener("keyup", (event) => {
 
 window.addEventListener("blur", () => {
     game.keys.clear();
+    releaseAllMobilePointers();
     if (!game.paused && !game.finished && game.phase === "fight") {
         setPaused(true);
     }
 });
 
 document.addEventListener("visibilitychange", () => {
+    if (document.hidden) releaseAllMobilePointers();
     if (
         document.hidden &&
         !game.paused &&
